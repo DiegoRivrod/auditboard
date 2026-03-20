@@ -38,7 +38,7 @@ interface Observacion {
   severidad: string
   estado: string
   created_at: string
-  area_responsable: { nombre: string }[] | null
+  areas: { nombre: string }[] | null
 }
 
 export default function Dashboard() {
@@ -50,7 +50,7 @@ export default function Dashboard() {
     const fetchData = async () => {
       const { data, error } = await supabase
         .from('observaciones')
-        .select('severidad, estado, created_at, area_responsable:areas(nombre)')
+        .select('severidad, estado, created_at, areas!area_responsable_id(nombre)')
 
       if (error) {
         toast.error('Error al cargar los datos')
@@ -65,9 +65,8 @@ export default function Dashboard() {
 
   const anio = new Date().getFullYear()
   const SEVERIDADES = ['critica', 'mayor', 'menor']
-  const areas = [...new Set(obs.map(o => o.area_responsable?.[0]?.nombre).filter(Boolean))] as string[]
+  const areas = [...new Set(obs.map(o => o.areas?.[0]?.nombre).filter(Boolean))] as string[]
 
-  // --- PIE: por severidad ---
   const pieData = {
     labels: SEVERIDADES.map(s => SEVERIDAD_LABEL[s]),
     datasets: [{
@@ -78,17 +77,15 @@ export default function Dashboard() {
     }]
   }
 
-  // --- BARRAS: por área y severidad ---
   const barAreaData = {
     labels: areas,
     datasets: SEVERIDADES.map(s => ({
       label: SEVERIDAD_LABEL[s],
-      data: areas.map(a => obs.filter(o => o.area_responsable?.[0]?.nombre === a && o.severidad === s).length),
+      data: areas.map(a => obs.filter(o => o.areas?.[0]?.nombre === a && o.severidad === s).length),
       backgroundColor: SEVERIDAD_COLOR[s],
     }))
   }
 
-  // --- BARRAS: por mes ---
   const barMesData = {
     labels: MESES,
     datasets: SEVERIDADES.map(s => ({
