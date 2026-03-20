@@ -1,25 +1,43 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { ToastContainer, toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  PieChart, Pie, Cell, ResponsiveContainer
-} from 'recharts'
+  Chart as ChartJS,
+  CategoryScale, LinearScale, BarElement,
+  ArcElement, Tooltip, Legend, Title
+} from 'chart.js'
+import { Bar, Pie } from 'react-chartjs-2'
 
-const TIPOS = ['No Conforme', 'Observacion', 'Oportunidad de Mejora']
-const COLORES_TIPO: Record<string, string> = {
-  'No Conforme': '#ef4444',
-  'Observacion': '#f59e0b',
-  'Oportunidad de Mejora': '#3b82f6',
-}
-const COLORES_PIE = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981']
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend, Title)
+
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
+const SEVERIDAD_LABEL: Record<string, string> = {
+  critica: 'No Conformidad',
+  mayor: 'Observacion',
+  menor: 'Oportunidad de Mejora',
+}
+
+const SEVERIDAD_COLOR: Record<string, string> = {
+  critica: '#ef4444',
+  mayor: '#f59e0b',
+  menor: '#3b82f6',
+}
+
+const ESTADO_LABEL: Record<string, string> = {
+  sin_fecha: 'Sin Fecha',
+  fecha_comprometida: 'Fecha Comprometida',
+  en_ejecucion: 'En Ejecución',
+  en_verificacion: 'En Verificación',
+  levantada: 'Levantada',
+}
+
 interface Observacion {
-  tipo: string
+  severidad: string
   estado: string
   created_at: string
-  area_responsable_id: string
   areas: { nombre: string }[] | null
 }
 
@@ -32,144 +50,204 @@ export default function Dashboard() {
     const fetchData = async () => {
       const { data, error } = await supabase
         .from('observaciones')
-        .select('tipo, estado, created_at, area_responsable_id, areas(nombre)')
-      if (!error && data) setObs(data as Observacion[])
+        .select('severidad, estado, created_at, areas(nombre)')
+
+      if (error) {
+        toast.error('Error al cargar los datos')
+      } else if (data) {
+        setObs(data as Observacion[])
+        toast.success(`${data.length} observaciones cargadas`)
+      }
       setLoading(false)
     }
     fetchData()
   }, [])
 
-  // --- Datos por tipo (pie) ---
-  const porTipo = TIPOS.map(t => ({
-    name: t,
-    value: obs.filter(o => o.tipo === t).length
-  })).filter(d => d.value > 0)
-
-  // --- Datos por área y tipo (barras apiladas) ---
-  const areas = [...new Set(obs.map(o => o.areas?.[0]?.nombre).filter(Boolean))] as string[]
-  const porArea = areas.map(area => {
-    const row: Record<string, string | number> = { area }
-    TIPOS.forEach(t => {
-      row[t] = obs.filter(o => o.areas?.[0]?.nombre === area && o.tipo === t).length
-    })
-    return row
-  })
-
-  // --- Datos por mes (año actual) ---
   const anio = new Date().getFullYear()
-  const porMes = MESES.map((mes, i) => {
-    const row: Record<string, string | number> = { mes }
-    TIPOS.forEach(t => {
-      row[t] = obs.filter(o => {
-        const d = new Date(o.created_at)
-        return d.getFullYear() === anio && d.getMonth() === i && o.tipo === t
-      }).length
-    })
-    return row
-  })
+  const SEVERIDADES = ['critica', 'mayor', 'menor']
+  const areas = [...new Set(obs.map(o => o.areas?.[0]?.nombre).filter(Boolean))] as string[]
 
-  // --- Totales resumen ---
-  const total = obs.length
-  const porEstado = {
-    sinFecha: obs.filter(o => o.estado === 'SIN_FECHA').length,
-    ejecucion: obs.filter(o => o.estado === 'EN_EJECUCION').length,
-    verificacion: obs.filter(o => o.estado === 'EN_VERIFICACION').length,
-    levantada: obs.filter(o => o.estado === 'LEVANTADA').length,
+  // --- PIE: por severidad ---
+  const pieData = {
+    labels: SEVERIDADES.map(s => SEVERIDAD_LABEL[s]),
+    datasets: [{
+      data: SEVERIDADES.map(s => obs.filter(o => o.severidad === s).length),
+      backgroundColor: SEVERIDADES.map(s => SEVERIDAD_COLOR[s]),
+      borderWidth: 2,
+      borderColor: '#1a2234',
+    }]
   }
 
+  // --- BARRAS: por área y severidad ---
+  const barAreaData = {
+    labels: areas,
+    datasets: SEVERIDADES.map(s => ({
+      label: SEVERIDAD_LABEL[s],
+      data: areas.map(a => obs.filter(o => o.areas?.[0]?.nombre === a && o.severidad === s).length),
+      backgroundColor: SEVERIDAD_COLOR[s],
+    }))
+  }
+
+  // --- BARRAS: por mes ---
+  const barMesData = {
+    labels: MESES,
+    datasets: SEVERIDADES.map(s => ({
+      label: SEVERIDAD_LABEL[s],
+      data: MESES.map((_, i) =>
+        obs.filter(o => {
+          const d = new Date(o.created_at)
+          return d.getFullYear() === anio && d.getMonth() === i && o.severidad === s
+        }).length
+      ),
+      backgroundColor: SEVERIDAD_COLOR[s],
+    }))
+  }
+
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: { labels: { color: '#cbd5e1' } },
+    },
+    scales: {
+      x: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: '#2d3748' } },
+      y: { stacked: true, ticks: { color: '#94a3b8' }, grid: { color: '#2d3748' }, beginAtZero: true },
+    }
+  }
+
+  const pieOptions = {
+    responsive: true,
+    plugins: {
+      legend: { position: 'bottom' as const, labels: { color: '#cbd5e1' } },
+    }
+  }
+
+  // --- Conteos resumen ---
+  const total = obs.length
+  const estados = Object.keys(ESTADO_LABEL)
+
   if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+    <div style={{
+      minHeight: '100vh', background: '#0f1623',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'system-ui, sans-serif', fontSize: '14px', color: '#7a8aaa'
+    }}>
       Cargando dashboard...
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <div className="bg-red-600 p-2 rounded-lg">
-            <span className="text-xl">📊</span>
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Dashboard</h1>
-            <p className="text-gray-400 text-sm">Resumen de observaciones {anio}</p>
-          </div>
+    <div style={{ minHeight: '100vh', background: '#0f1623', fontFamily: 'system-ui, sans-serif', color: 'white' }}>
+      <ToastContainer position="top-right" theme="dark" />
+
+      {/* HEADER */}
+      <div style={{
+        background: '#1a2234', padding: '0 24px', height: '56px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid #2d3748'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '32px', height: '32px', background: '#c0392b',
+            borderRadius: '7px', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: '16px'
+          }}>🔍</div>
+          <span style={{ color: 'white', fontWeight: '800', fontSize: '18px' }}>AuditBoard</span>
+          <span style={{
+            marginLeft: '8px', background: '#1e3a5f', color: '#60a5fa',
+            fontSize: '10px', fontWeight: '700', padding: '2px 8px',
+            borderRadius: '20px', letterSpacing: '0.5px'
+          }}>DASHBOARD {anio}</span>
         </div>
         <button
           onClick={() => navigate('/tablero')}
-          className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition"
+          style={{
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+            color: 'rgba(255,255,255,0.7)', borderRadius: '7px', padding: '6px 14px',
+            fontSize: '12px', fontWeight: '700', cursor: 'pointer'
+          }}
         >
           ← Volver al Tablero
         </button>
       </div>
 
-      {/* Tarjetas resumen */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        {[
-          { label: 'Total', value: total, color: 'bg-gray-700' },
-          { label: 'Sin Fecha', value: porEstado.sinFecha, color: 'bg-red-900' },
-          { label: 'En Ejecución', value: porEstado.ejecucion, color: 'bg-blue-900' },
-          { label: 'En Verificación', value: porEstado.verificacion, color: 'bg-purple-900' },
-          { label: 'Levantadas', value: porEstado.levantada, color: 'bg-green-900' },
-        ].map(card => (
-          <div key={card.label} className={`${card.color} rounded-xl p-4 text-center`}>
-            <div className="text-3xl font-bold">{card.value}</div>
-            <div className="text-gray-300 text-sm mt-1">{card.label}</div>
+      <div style={{ padding: '24px' }}>
+
+        {/* TARJETAS RESUMEN ESTADO */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          <div style={{
+            background: '#1a2234', border: '1px solid #2d3748', borderRadius: '12px',
+            padding: '16px 20px', textAlign: 'center', minWidth: '110px'
+          }}>
+            <div style={{ fontSize: '32px', fontWeight: '800', color: 'white' }}>{total}</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>TOTAL</div>
           </div>
-        ))}
-      </div>
-
-      {/* Gráficos fila 1 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Pie por tipo */}
-        <div className="bg-gray-800 rounded-xl p-5">
-          <h2 className="text-lg font-semibold mb-4">Distribución por Tipo</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-                <Pie data={porTipo} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
-                {porTipo.map((_, i) => (
-                  <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+          {estados.map(e => (
+            <div key={e} style={{
+              background: '#1a2234', border: '1px solid #2d3748', borderRadius: '12px',
+              padding: '16px 20px', textAlign: 'center', minWidth: '110px', flex: 1
+            }}>
+              <div style={{ fontSize: '28px', fontWeight: '800', color: 'white' }}>
+                {obs.filter(o => o.estado === e).length}
+              </div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px', textTransform: 'uppercase' }}>
+                {ESTADO_LABEL[e]}
+              </div>
+            </div>
+          ))}
         </div>
 
-        {/* Barras por área */}
-        <div className="bg-gray-800 rounded-xl p-5">
-          <h2 className="text-lg font-semibold mb-4">Por Área y Tipo</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={porArea}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="area" tick={{ fill: '#9ca3af', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#9ca3af' }} allowDecimals={false} />
-              <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
-              <Legend />
-              {TIPOS.map(t => (
-                <Bar key={t} dataKey={t} stackId="a" fill={COLORES_TIPO[t]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+        {/* TARJETAS RESUMEN SEVERIDAD */}
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+          {SEVERIDADES.map(s => (
+            <div key={s} style={{
+              flex: 1, background: '#1a2234',
+              border: `1px solid ${SEVERIDAD_COLOR[s]}40`,
+              borderLeft: `4px solid ${SEVERIDAD_COLOR[s]}`,
+              borderRadius: '12px', padding: '16px 20px',
+              display: 'flex', alignItems: 'center', gap: '14px'
+            }}>
+              <div style={{ fontSize: '32px', fontWeight: '800', color: SEVERIDAD_COLOR[s] }}>
+                {obs.filter(o => o.severidad === s).length}
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: 'white' }}>
+                  {SEVERIDAD_LABEL[s]}
+                </div>
+                <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px', textTransform: 'uppercase' }}>
+                  {s}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      </div>
 
-      {/* Gráfico por mes */}
-      <div className="bg-gray-800 rounded-xl p-5">
-        <h2 className="text-lg font-semibold mb-4">Observaciones por Mes — {anio}</h2>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={porMes}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="mes" tick={{ fill: '#9ca3af' }} />
-            <YAxis tick={{ fill: '#9ca3af' }} allowDecimals={false} />
-            <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
-            <Legend />
-            {TIPOS.map(t => (
-              <Bar key={t} dataKey={t} stackId="a" fill={COLORES_TIPO[t]} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
+        {/* GRÁFICOS FILA 1 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+          <div style={{ background: '#1a2234', border: '1px solid #2d3748', borderRadius: '12px', padding: '20px' }}>
+            <h2 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: '700', color: '#e2e8f0' }}>
+              Distribución por Tipo
+            </h2>
+            <div style={{ maxWidth: '300px', margin: '0 auto' }}>
+              <Pie data={pieData} options={pieOptions} />
+            </div>
+          </div>
+
+          <div style={{ background: '#1a2234', border: '1px solid #2d3748', borderRadius: '12px', padding: '20px' }}>
+            <h2 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: '700', color: '#e2e8f0' }}>
+              Por Área y Tipo
+            </h2>
+            <Bar data={barAreaData} options={chartOptions} />
+          </div>
+        </div>
+
+        {/* GRÁFICO POR MES */}
+        <div style={{ background: '#1a2234', border: '1px solid #2d3748', borderRadius: '12px', padding: '20px' }}>
+          <h2 style={{ margin: '0 0 16px', fontSize: '14px', fontWeight: '700', color: '#e2e8f0' }}>
+            Observaciones por Mes — {anio}
+          </h2>
+          <Bar data={barMesData} options={chartOptions} />
+        </div>
+
       </div>
     </div>
   )
