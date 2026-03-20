@@ -53,8 +53,10 @@ export default function Dashboard() {
         .select('severidad, estado, created_at, areas!area_responsable_id(nombre)')
 
       if (error) {
+        console.log('ERROR:', error)
         toast.error('Error al cargar los datos')
       } else if (data) {
+        console.log('DATA CRUDA:', JSON.stringify(data[0], null, 2))
         setObs(data as Observacion[])
         toast.success(`${data.length} observaciones cargadas`)
       }
