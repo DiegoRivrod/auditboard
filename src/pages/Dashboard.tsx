@@ -56,7 +56,7 @@ export default function Dashboard() {
         console.log('ERROR:', error)
         toast.error('Error al cargar los datos')
       } else if (data) {
-        setObs(data as Observacion[])
+        setObs(data as unknown as Observacion[])
         toast.success(`${data.length} observaciones cargadas`)
       }
       setLoading(false)
