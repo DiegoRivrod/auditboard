@@ -38,7 +38,7 @@ interface Observacion {
   severidad: string
   estado: string
   created_at: string
-  areas: { nombre: string }[] | null
+  area_responsable: { nombre: string }[] | null
 }
 
 export default function Dashboard() {
@@ -50,7 +50,7 @@ export default function Dashboard() {
     const fetchData = async () => {
       const { data, error } = await supabase
         .from('observaciones')
-        .select('severidad, estado, created_at, areas(nombre)')
+        .select('severidad, estado, created_at, area_responsable:areas(nombre)')
 
       if (error) {
         toast.error('Error al cargar los datos')
@@ -65,7 +65,7 @@ export default function Dashboard() {
 
   const anio = new Date().getFullYear()
   const SEVERIDADES = ['critica', 'mayor', 'menor']
-  const areas = [...new Set(obs.map(o => o.areas?.[0]?.nombre).filter(Boolean))] as string[]
+  const areas = [...new Set(obs.map(o => o.area_responsable?.[0]?.nombre).filter(Boolean))] as string[]
 
   // --- PIE: por severidad ---
   const pieData = {
@@ -83,7 +83,7 @@ export default function Dashboard() {
     labels: areas,
     datasets: SEVERIDADES.map(s => ({
       label: SEVERIDAD_LABEL[s],
-      data: areas.map(a => obs.filter(o => o.areas?.[0]?.nombre === a && o.severidad === s).length),
+      data: areas.map(a => obs.filter(o => o.area_responsable?.[0]?.nombre === a && o.severidad === s).length),
       backgroundColor: SEVERIDAD_COLOR[s],
     }))
   }
@@ -121,7 +121,6 @@ export default function Dashboard() {
     }
   }
 
-  // --- Conteos resumen ---
   const total = obs.length
   const estados = Object.keys(ESTADO_LABEL)
 
@@ -172,7 +171,7 @@ export default function Dashboard() {
 
       <div style={{ padding: '24px' }}>
 
-        {/* TARJETAS RESUMEN ESTADO */}
+        {/* TARJETAS ESTADO */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
           <div style={{
             background: '#1a2234', border: '1px solid #2d3748', borderRadius: '12px',
@@ -196,7 +195,7 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* TARJETAS RESUMEN SEVERIDAD */}
+        {/* TARJETAS SEVERIDAD */}
         <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
           {SEVERIDADES.map(s => (
             <div key={s} style={{
