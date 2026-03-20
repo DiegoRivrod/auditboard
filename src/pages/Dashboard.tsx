@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../lib/supabase'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell, ResponsiveContainer
@@ -127,7 +127,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold mb-4">Distribución por Tipo</h2>
           <ResponsiveContainer width="100%" height={260}>
             <PieChart>
-              <Pie data={porTipo} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                <Pie data={porTipo} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}>
                 {porTipo.map((_, i) => (
                   <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} />
                 ))}
