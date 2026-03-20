@@ -26,9 +26,6 @@ export default function Tablero() {
   const [usuario, setUsuario] = useState<any>(null)
   const [mostrarModal, setMostrarModal] = useState(false)
   const [auditoriaId, setAuditoriaId] = useState('')
-
-  // 🆕 Estado para la observación seleccionada
-  // null = panel cerrado, cualquier observación = panel abierto
   const [obsSeleccionada, setObsSeleccionada] = useState<any>(null)
 
   useEffect(() => {
@@ -106,6 +103,27 @@ export default function Tablero() {
             fontSize: '10px', fontWeight: '700', padding: '2px 8px',
             borderRadius: '20px', letterSpacing: '0.5px'
           }}>AUDITORIA ACTIVA</span>
+
+          {/* BOTÓN DASHBOARD */}
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              marginLeft: '8px',
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              color: 'rgba(255,255,255,0.85)',
+              borderRadius: '7px',
+              padding: '5px 12px',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}
+          >
+            📊 Dashboard
+          </button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -212,8 +230,6 @@ export default function Tablero() {
                   </div>
                 ) : (
                   obsPorEstado(col.id).map(obs => (
-
-                    // 🆕 onClick ahora abre el panel con esta observación
                     <div
                       key={obs.id}
                       onClick={() => setObsSeleccionada(obs)}
@@ -222,7 +238,6 @@ export default function Tablero() {
                         borderRadius: '10px', padding: '12px',
                         borderTop: `3px solid ${COLORES_AREA[obs.area_responsable?.codigo] || '#ccc'}`,
                         cursor: 'pointer',
-                        // 🆕 Resalta la tarjeta seleccionada
                         boxShadow: obsSeleccionada?.id === obs.id ? '0 0 0 2px #3b82f6' : 'none',
                         transition: 'all 0.2s'
                       }}
@@ -269,7 +284,7 @@ export default function Tablero() {
         </div>
       </div>
 
-      {/* 🆕 Panel de detalle — solo se muestra si hay una obs seleccionada */}
+      {/* PANEL DETALLE */}
       {obsSeleccionada && (
         <DetailPanel
           obs={obsSeleccionada}
