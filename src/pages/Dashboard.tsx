@@ -20,7 +20,7 @@ interface Observacion {
   estado: string
   created_at: string
   area_responsable_id: string
-  areas: { nombre: string } | null
+  areas: { nombre: string }[] | null
 }
 
 export default function Dashboard() {
@@ -46,11 +46,11 @@ export default function Dashboard() {
   })).filter(d => d.value > 0)
 
   // --- Datos por área y tipo (barras apiladas) ---
-  const areas = [...new Set(obs.map(o => o.areas?.nombre).filter(Boolean))] as string[]
+  const areas = [...new Set(obs.map(o => o.areas?.[0]?.nombre).filter(Boolean))] as string[]
   const porArea = areas.map(area => {
     const row: Record<string, string | number> = { area }
     TIPOS.forEach(t => {
-      row[t] = obs.filter(o => o.areas?.nombre === area && o.tipo === t).length
+      row[t] = obs.filter(o => o.areas?.[0]?.nombre === area && o.tipo === t).length
     })
     return row
   })
