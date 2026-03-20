@@ -1,0 +1,261 @@
+const fs = require('fs')
+
+const contenido = `import { useState } from 'react'
+import { supabase } from '../../lib/supabase'
+
+interface Props {
+  obs: any
+  usuarioId: string
+  onClose: () => void
+  onActualizada: () => void
+}
+
+const COLORES_AREA: Record<string, string> = {
+  CALIDAD: '#c0392b',
+  PRODUCCION: '#1a6fb5',
+  ALMACEN: '#d97706',
+  MANTENIMIENTO: '#16a34a',
+}
+
+const ESTADOS = [
+  { id: 'sin_fecha', label: 'Sin Fecha', color: '#ef4444' },
+  { id: 'fecha_comprometida', label: 'Fecha Comprometida', color: '#f59e0b' },
+  { id: 'en_ejecucion', label: 'En Ejecucion', color: '#3b82f6' },
+  { id: 'en_verificacion', label: 'En Verificacion', color: '#8b5cf6' },
+  { id: 'levantada', label: 'Levantada', color: '#22c55e' },
+]
+
+export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: Props) {
+  const [estado, setEstado] = useState(obs.estado)
+  const [porcentaje, setPorcentaje] = useState(obs.porcentaje_avance)
+  const [fechaInicio, setFechaInicio] = useState(obs.fecha_inicio_comprometida || '')
+  const [fechaCierre, setFechaCierre] = useState(obs.fecha_cierre_estimada || '')
+  const [comentario, setComentario] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [guardado, setGuardado] = useState(false)
+
+  async function handleGuardar() {
+    setLoading(true)
+
+    const { error } = await supabase
+      .from('observaciones')
+      .update({
+        estado,
+        porcentaje_avance: porcentaje,
+        fecha_inicio_comprometida: fechaInicio || null,
+        fecha_cierre_estimada: fechaCierre || null,
+        ...(estado === 'levantada' && { fecha_cierre_real: new Date().toISOString() }),
+      })
+      .eq('id', obs.id)
+
+    if (error) {
+      alert('Error al guardar: ' + error.message)
+      setLoading(false)
+      return
+    }
+
+    await supabase
+      .from('actualizaciones')
+      .insert({
+        observacion_id: obs.id,
+        usuario_id: usuarioId,
+        tipo: 'cambio_estado',
+        contenido: comentario,
+        estado_anterior: obs.estado,
+        estado_nuevo: estado,
+        porcentaje_anterior: obs.porcentaje_avance,
+        porcentaje_nuevo: porcentaje,
+      })
+
+    setLoading(false)
+    setGuardado(true)
+    setTimeout(() => {
+      setGuardado(false)
+      onActualizada()
+      onClose()
+    }, 1000)
+  }
+
+  const colorArea = COLORES_AREA[obs.area_responsable?.codigo] || '#666'
+
+  const inputStyle = {
+    width: '100%', padding: '9px 12px',
+    background: '#f7f9fc', border: '1px solid #e2e8f0',
+    borderRadius: '7px', fontSize: '13px',
+    fontFamily: 'system-ui, sans-serif',
+    color: '#1a2234', outline: 'none',
+    boxSizing: 'border-box' as const
+  }
+
+  const labelStyle = {
+    display: 'block' as const,
+    fontSize: '11px', fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px', color: '#7a8aaa',
+    marginBottom: '5px'
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, right: 0, bottom: 0,
+      width: '420px', background: 'white',
+      borderLeft: '1px solid #e2e8f0',
+      boxShadow: '-8px 0 32px rgba(0,0,0,0.1)',
+      zIndex: 200, overflowY: 'auto',
+      fontFamily: 'system-ui, sans-serif',
+      display: 'flex', flexDirection: 'column'
+    }}>
+      <div style={{
+        padding: '20px 22px 16px',
+        borderBottom: '1px solid #e2e8f0',
+        position: 'sticky', top: 0,
+        background: 'white', zIndex: 10
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, paddingRight: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: '700', color: '#b0bdd4', textTransform: 'uppercase' }}>
+                {obs.codigo}
+              </span>
+              <span style={{
+                fontSize: '10px', fontWeight: '700', padding: '2px 8px',
+                borderRadius: '4px',
+                background: obs.severidad === 'critica' ? '#fee2e2' : obs.severidad === 'mayor' ? '#fef3c7' : '#dbeafe',
+                color: obs.severidad === 'critica' ? '#c0392b' : obs.severidad === 'mayor' ? '#b45309' : '#1a6fb5'
+              }}>
+                {obs.severidad}
+              </span>
+            </div>
+            <div style={{ fontSize: '15px', fontWeight: '700', color: '#1a2234', lineHeight: '1.3' }}>
+              {obs.titulo}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            width: '30px', height: '30px', borderRadius: '7px',
+            background: '#f7f9fc', border: '1px solid #e2e8f0',
+            fontSize: '18px', cursor: 'pointer', color: '#7a8aaa',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0
+          }}>x</button>
+        </div>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: '6px',
+          marginTop: '10px', padding: '4px 10px',
+          borderRadius: '6px', border: '1px solid ' + colorArea + '20',
+          background: colorArea + '10'
+        }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colorArea }} />
+          <span style={{ fontSize: '12px', fontWeight: '700', color: colorArea }}>
+            {obs.area_responsable?.nombre}
+          </span>
+        </div>
+      </div>
+
+      <div style={{ padding: '20px 22px', flex: 1 }}>
+        {obs.descripcion && (
+          <div style={{ marginBottom: '20px' }}>
+            <div style={labelStyle}>Descripcion</div>
+            <p style={{ fontSize: '13px', color: '#4a5568', lineHeight: '1.5', margin: 0 }}>
+              {obs.descripcion}
+            </p>
+          </div>
+        )}
+
+        {obs.accion_requerida && (
+          <div style={{ marginBottom: '20px' }}>
+            <div style={labelStyle}>Accion Requerida</div>
+            <div style={{
+              background: '#fffbeb', border: '1px solid #fde68a',
+              borderRadius: '8px', padding: '10px 12px',
+              fontSize: '13px', color: '#92400e'
+            }}>
+              {obs.accion_requerida}
+            </div>
+          </div>
+        )}
+
+        <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 20px' }} />
+
+        <div style={{
+          fontSize: '12px', fontWeight: '700', textTransform: 'uppercase',
+          letterSpacing: '1px', color: '#b0bdd4', marginBottom: '16px'
+        }}>
+          Respuesta del Area
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          <div>
+            <label style={labelStyle}>Fecha de inicio</label>
+            <input type="date" value={fechaInicio}
+              onChange={e => setFechaInicio(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>Fecha de cierre est.</label>
+            <input type="date" value={fechaCierre}
+              onChange={e => setFechaCierre(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>
+            Avance - {porcentaje}%
+          </label>
+          <input type="range" min="0" max="100" step="5"
+            value={porcentaje}
+            onChange={e => setPorcentaje(Number(e.target.value))}
+            style={{ width: '100%', accentColor: colorArea }} />
+          <div style={{ height: '6px', background: '#e8edf5', borderRadius: '6px', marginTop: '6px', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', borderRadius: '6px', background: colorArea,
+              width: porcentaje + '%', transition: 'width 0.3s ease'
+            }} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>Estado actual</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {ESTADOS.map(e => (
+              <div key={e.id} onClick={() => setEstado(e.id)} style={{
+                padding: '9px 12px', borderRadius: '8px', cursor: 'pointer',
+                fontSize: '13px', fontWeight: '600',
+                border: '2px solid ' + (estado === e.id ? e.color : '#e2e8f0'),
+                background: estado === e.id ? e.color + '10' : '#f7f9fc',
+                color: estado === e.id ? e.color : '#7a8aaa',
+                transition: 'all 0.15s',
+                display: 'flex', alignItems: 'center', gap: '8px'
+              }}>
+                <div style={{
+                  width: '8px', height: '8px', borderRadius: '50%',
+                  background: estado === e.id ? e.color : '#d1d9e6'
+                }} />
+                {e.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={labelStyle}>Comentario / Actualizacion</label>
+          <textarea value={comentario}
+            onChange={e => setComentario(e.target.value)}
+            placeholder="Describe el avance, materiales, bloqueos..."
+            style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' as const }} />
+        </div>
+
+        <button onClick={handleGuardar} disabled={loading || guardado} style={{
+          width: '100%', padding: '12px',
+          background: guardado ? '#22c55e' : loading ? '#999' : colorArea,
+          color: 'white', border: 'none', borderRadius: '8px',
+          fontSize: '14px', fontWeight: '700',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          transition: 'background 0.3s'
+        }}>
+          {guardado ? 'Guardado exitosamente' : loading ? 'Guardando...' : 'Guardar y Notificar a Calidad'}
+        </button>
+      </div>
+    </div>
+  )
+}
+fs.writeFileSync('src/components/detail/DetailPanel.tsx', contenido, 'utf8')
+console.log('Archivo creado exitosamente')
