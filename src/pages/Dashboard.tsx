@@ -38,7 +38,7 @@ interface Observacion {
   severidad: string
   estado: string
   created_at: string
-  areas: { nombre: string }[] | null
+  areas: { nombre: string } | null
 }
 
 export default function Dashboard() {
@@ -56,7 +56,6 @@ export default function Dashboard() {
         console.log('ERROR:', error)
         toast.error('Error al cargar los datos')
       } else if (data) {
-        console.log('DATA CRUDA:', JSON.stringify(data[0], null, 2))
         setObs(data as Observacion[])
         toast.success(`${data.length} observaciones cargadas`)
       }
@@ -67,7 +66,7 @@ export default function Dashboard() {
 
   const anio = new Date().getFullYear()
   const SEVERIDADES = ['critica', 'mayor', 'menor']
-  const areas = [...new Set(obs.map(o => o.areas?.[0]?.nombre).filter(Boolean))] as string[]
+  const areas = [...new Set(obs.map(o => o.areas?.nombre).filter(Boolean))] as string[]
 
   const pieData = {
     labels: SEVERIDADES.map(s => SEVERIDAD_LABEL[s]),
@@ -83,7 +82,7 @@ export default function Dashboard() {
     labels: areas,
     datasets: SEVERIDADES.map(s => ({
       label: SEVERIDAD_LABEL[s],
-      data: areas.map(a => obs.filter(o => o.areas?.[0]?.nombre === a && o.severidad === s).length),
+      data: areas.map(a => obs.filter(o => o.areas?.nombre === a && o.severidad === s).length),
       backgroundColor: SEVERIDAD_COLOR[s],
     }))
   }
