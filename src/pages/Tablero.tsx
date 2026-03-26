@@ -32,6 +32,8 @@ export default function Tablero() {
     cargarDatos()
   }, [])
 
+  const esCalidad = usuario?.area?.codigo === 'CALIDAD'
+
   async function cargarDatos() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -69,6 +71,19 @@ export default function Tablero() {
     navigate('/login')
   }
 
+  async function eliminarObs(id: string) {
+    const { error } = await supabase
+      .from('observaciones')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      alert('Error al eliminar: ' + error.message)
+    } else {
+      cargarDatos()
+    }
+  }
+
   const obsPorEstado = (estado: string) =>
     observaciones.filter(o => o.estado === estado)
 
@@ -103,27 +118,6 @@ export default function Tablero() {
             fontSize: '10px', fontWeight: '700', padding: '2px 8px',
             borderRadius: '20px', letterSpacing: '0.5px'
           }}>AUDITORIA ACTIVA</span>
-
-          {/* BOTÓN DASHBOARD */}
-          <button
-            onClick={() => navigate('/dashboard')}
-            style={{
-              marginLeft: '8px',
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: 'rgba(255,255,255,0.85)',
-              borderRadius: '7px',
-              padding: '5px 12px',
-              fontSize: '12px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}
-          >
-            📊 Dashboard
-          </button>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -147,17 +141,19 @@ export default function Tablero() {
               </div>
             </div>
           )}
-          <button
-            onClick={() => setMostrarModal(true)}
-            style={{
-              background: '#c0392b', border: 'none',
-              color: 'white', borderRadius: '7px',
-              padding: '7px 14px', fontSize: '12px',
-              fontWeight: '700', cursor: 'pointer'
-            }}
-          >
-            + Nueva Observacion
-          </button>
+          {esCalidad && (
+            <button
+              onClick={() => setMostrarModal(true)}
+              style={{
+                background: '#c0392b', border: 'none',
+                color: 'white', borderRadius: '7px',
+                padding: '7px 14px', fontSize: '12px',
+                fontWeight: '700', cursor: 'pointer'
+              }}
+            >
+              + Nueva Observacion
+            </button>
+          )}
           <button onClick={handleLogout} style={{
             background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
             color: 'rgba(255,255,255,0.6)', borderRadius: '7px', padding: '6px 12px',
@@ -251,7 +247,7 @@ export default function Tablero() {
                           background: obs.severidad === 'critica' ? '#fee2e2' : obs.severidad === 'mayor' ? '#fef3c7' : '#dbeafe',
                           color: obs.severidad === 'critica' ? '#c0392b' : obs.severidad === 'mayor' ? '#b45309' : '#1a6fb5'
                         }}>
-                          {obs.severidad === 'critica' ? 'No Conforme' : obs.severidad === 'mayor' ? 'Observacion' : 'Oportunidad de Mejora'}
+                          {obs.severidad === 'critica' ? 'No Conformidad' : obs.severidad === 'mayor' ? 'Observacion' : 'Oportunidad de Mejora'}
                         </span>
                       </div>
                       <div style={{
@@ -275,6 +271,30 @@ export default function Tablero() {
                           </div>
                         </div>
                       )}
+                      {esCalidad && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            if (window.confirm('Eliminar esta observacion?')) {
+                              eliminarObs(obs.id)
+                            }
+                          }}
+                          style={{
+                            marginTop: '8px',
+                            width: '100%',
+                            padding: '5px',
+                            background: 'transparent',
+                            border: '1px solid #fecaca',
+                            borderRadius: '6px',
+                            color: '#c0392b',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🗑️ Eliminar
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
@@ -284,7 +304,6 @@ export default function Tablero() {
         </div>
       </div>
 
-      {/* PANEL DETALLE */}
       {obsSeleccionada && (
         <DetailPanel
           obs={obsSeleccionada}

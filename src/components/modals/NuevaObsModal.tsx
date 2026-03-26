@@ -10,6 +10,7 @@ interface Props {
 
 export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCreada }: Props) {
   const [areas, setAreas] = useState<any[]>([])
+  const [subareas, setSubareas] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     tipo: 'maquinaria',
@@ -19,20 +20,40 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
     accion_requerida: '',
     ubicacion: '',
     area_responsable_id: '',
+    subarea_id: '',
   })
 
   useEffect(() => {
     cargarAreas()
   }, [])
 
+  // Cuando cambia el área cargamos sus subáreas
+  useEffect(() => {
+    if (form.area_responsable_id) {
+      cargarSubareas(form.area_responsable_id)
+    }
+  }, [form.area_responsable_id])
+
   async function cargarAreas() {
     const { data } = await supabase
       .from('areas')
       .select('*')
-      .neq('codigo', 'CALIDAD')
     setAreas(data || [])
     if (data && data.length > 0) {
       setForm(f => ({ ...f, area_responsable_id: data[0].id }))
+    }
+  }
+
+  async function cargarSubareas(areaId: string) {
+    const { data } = await supabase
+      .from('subareas')
+      .select('*')
+      .eq('area_id', areaId)
+    setSubareas(data || [])
+    if (data && data.length > 0) {
+      setForm(f => ({ ...f, subarea_id: data[0].id }))
+    } else {
+      setForm(f => ({ ...f, subarea_id: '' }))
     }
   }
 
@@ -51,7 +72,14 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
     const { error } = await supabase
       .from('observaciones')
       .insert({
-        ...form,
+        tipo: form.tipo,
+        severidad: form.severidad,
+        titulo: form.titulo,
+        descripcion: form.descripcion,
+        accion_requerida: form.accion_requerida,
+        ubicacion: form.ubicacion,
+        area_responsable_id: form.area_responsable_id,
+        subarea_id: form.subarea_id || null,
         codigo,
         auditoria_id: auditoriaId,
         creado_por: usuarioId,
@@ -90,8 +118,6 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
       })
       console.log('Respuesta Edge Function:', respuesta)
       console.log('Error Edge Function:', errorFn)
-    } else {
-      console.log('No se encontro perfil para el area seleccionada')
     }
 
     setLoading(false)
@@ -140,7 +166,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
               Nueva Observacion
             </div>
             <div style={{ fontSize: '12px', color: '#7a8aaa', marginTop: '2px' }}>
-              Auditoria General Marzo 2026
+              Auditoria General 2026
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -153,6 +179,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
 
         <form onSubmit={handleSubmit} style={{ padding: '20px 24px 24px' }}>
 
+          {/* Area y Subarea */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
             <div>
               <label style={labelStyle}>Area Responsable *</label>
@@ -168,21 +195,36 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Tipo *</label>
+              <label style={labelStyle}>Subarea</label>
               <select
-                value={form.tipo}
-                onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
+                value={form.subarea_id}
+                onChange={e => setForm(f => ({ ...f, subarea_id: e.target.value }))}
                 style={inputStyle}
               >
-                <option value="estructura">Estructura / Instalacion</option>
-                <option value="maquinaria">Maquinaria / Equipo</option>
-                <option value="producto">Producto / Proceso</option>
-                <option value="documentacion">Documentacion</option>
-                <option value="seguridad">Seguridad</option>
+                {subareas.map(s => (
+                  <option key={s.id} value={s.id}>{s.nombre}</option>
+                ))}
               </select>
             </div>
           </div>
 
+          {/* Tipo */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={labelStyle}>Tipo *</label>
+            <select
+              value={form.tipo}
+              onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
+              style={inputStyle}
+            >
+              <option value="estructura">Estructura / Instalacion</option>
+              <option value="maquinaria">Maquinaria / Equipo</option>
+              <option value="producto">Producto / Proceso</option>
+              <option value="documentacion">Documentacion</option>
+              <option value="seguridad">Seguridad</option>
+            </select>
+          </div>
+
+          {/* Severidad */}
           <div style={{ marginBottom: '14px' }}>
             <label style={labelStyle}>Severidad *</label>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -196,7 +238,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
                   onClick={() => setForm(f => ({ ...f, severidad: s.val }))}
                   style={{
                     flex: 1, padding: '8px', textAlign: 'center',
-                    borderRadius: '7px', cursor: 'pointer', fontSize: '12px', fontWeight: '700',
+                    borderRadius: '7px', cursor: 'pointer', fontSize: '11px', fontWeight: '700',
                     background: form.severidad === s.val ? s.bg : '#f7f9fc',
                     color: form.severidad === s.val ? s.color : '#7a8aaa',
                     border: `2px solid ${form.severidad === s.val ? s.color : '#e2e8f0'}`,
@@ -209,6 +251,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
             </div>
           </div>
 
+          {/* Titulo */}
           <div style={{ marginBottom: '14px' }}>
             <label style={labelStyle}>Titulo de la observacion *</label>
             <input
@@ -221,6 +264,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
             />
           </div>
 
+          {/* Descripcion */}
           <div style={{ marginBottom: '14px' }}>
             <label style={labelStyle}>Descripcion detallada</label>
             <textarea
@@ -231,6 +275,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
             />
           </div>
 
+          {/* Accion y Ubicacion */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
             <div>
               <label style={labelStyle}>Accion requerida</label>
@@ -254,6 +299,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
             </div>
           </div>
 
+          {/* Botones */}
           <div style={{ display: 'flex', gap: '10px' }}>
             <button type="button" onClick={onClose} style={{
               flex: 1, padding: '11px', borderRadius: '8px',
