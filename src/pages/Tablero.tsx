@@ -141,6 +141,17 @@ export default function Tablero() {
               </div>
             </div>
           )}
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+              color: 'rgba(255,255,255,0.8)', borderRadius: '7px',
+              padding: '7px 14px', fontSize: '12px',
+              fontWeight: '700', cursor: 'pointer'
+            }}
+          >
+            📊 Dashboard
+          </button>
           {esCalidad && (
             <button
               onClick={() => setMostrarModal(true)}

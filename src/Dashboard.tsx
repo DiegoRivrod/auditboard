@@ -1,163 +1,248 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../lib/supabase'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell, ResponsiveContainer
 } from 'recharts'
 
-const TIPOS = ['No Conforme', 'Observacion', 'Oportunidad de Mejora']
-const COLORES_TIPO: Record<string, string> = {
-  'No Conforme': '#ef4444',
+const SEVERIDADES = ['No Conformidad', 'Observacion', 'Oportunidad de Mejora']
+const COLORES_SEV: Record<string, string> = {
+  'No Conformidad': '#ef4444',
   'Observacion': '#f59e0b',
   'Oportunidad de Mejora': '#3b82f6',
 }
 const COLORES_PIE = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981']
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
-interface Observacion {
+interface ObsData {
   tipo: string
+  severidad: string
   estado: string
   created_at: string
-  area_responsable_id: string
-  areas: { nombre: string } | null
+  area_responsable: { nombre: string } | null
+  subarea: { nombre: string } | null
+}
+
+function getSevLabel(sev: string) {
+  if (sev === 'critica') return 'No Conformidad'
+  if (sev === 'mayor') return 'Observacion'
+  return 'Oportunidad de Mejora'
 }
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [obs, setObs] = useState<Observacion[]>([])
+  const [obs, setObs] = useState<ObsData[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
       const { data, error } = await supabase
         .from('observaciones')
-        .select('tipo, estado, created_at, area_responsable_id, areas(nombre)')
-      if (!error && data) setObs(data as Observacion[])
+        .select(`
+          tipo, severidad, estado, created_at,
+          area_responsable:areas(nombre),
+          subarea:subareas(nombre)
+        `)
+      if (!error && data) setObs(data as ObsData[])
       setLoading(false)
     }
     fetchData()
   }, [])
 
-  // --- Datos por tipo (pie) ---
-  const porTipo = TIPOS.map(t => ({
-    name: t,
-    value: obs.filter(o => o.tipo === t).length
+  // Por severidad (pie)
+  const porSeveridad = SEVERIDADES.map(s => ({
+    name: s,
+    value: obs.filter(o => getSevLabel(o.severidad) === s).length
   })).filter(d => d.value > 0)
 
-  // --- Datos por área y tipo (barras apiladas) ---
-  const areas = [...new Set(obs.map(o => o.areas?.nombre).filter(Boolean))] as string[]
+  // Por area y severidad (barras)
+  const areas = [...new Set(obs.map(o => o.area_responsable?.nombre).filter(Boolean))] as string[]
   const porArea = areas.map(area => {
     const row: Record<string, string | number> = { area }
-    TIPOS.forEach(t => {
-      row[t] = obs.filter(o => o.areas?.nombre === area && o.tipo === t).length
+    SEVERIDADES.forEach(s => {
+      row[s] = obs.filter(o =>
+        o.area_responsable?.nombre === area && getSevLabel(o.severidad) === s
+      ).length
     })
     return row
   })
 
-  // --- Datos por mes (año actual) ---
+  // Por subarea y severidad (barras)
+  const subareas = [...new Set(obs.map(o => o.subarea?.nombre).filter(Boolean))] as string[]
+  const porSubarea = subareas.map(sub => {
+    const row: Record<string, string | number> = { subarea: sub }
+    SEVERIDADES.forEach(s => {
+      row[s] = obs.filter(o =>
+        o.subarea?.nombre === sub && getSevLabel(o.severidad) === s
+      ).length
+    })
+    return row
+  })
+
+  // Por mes
   const anio = new Date().getFullYear()
   const porMes = MESES.map((mes, i) => {
     const row: Record<string, string | number> = { mes }
-    TIPOS.forEach(t => {
-      row[t] = obs.filter(o => {
+    SEVERIDADES.forEach(s => {
+      row[s] = obs.filter(o => {
         const d = new Date(o.created_at)
-        return d.getFullYear() === anio && d.getMonth() === i && o.tipo === t
+        return d.getFullYear() === anio && d.getMonth() === i && getSevLabel(o.severidad) === s
       }).length
     })
     return row
   })
 
-  // --- Totales resumen ---
   const total = obs.length
   const porEstado = {
-    sinFecha: obs.filter(o => o.estado === 'SIN_FECHA').length,
-    ejecucion: obs.filter(o => o.estado === 'EN_EJECUCION').length,
-    verificacion: obs.filter(o => o.estado === 'EN_VERIFICACION').length,
-    levantada: obs.filter(o => o.estado === 'LEVANTADA').length,
+    sinFecha: obs.filter(o => o.estado === 'sin_fecha').length,
+    comprometida: obs.filter(o => o.estado === 'fecha_comprometida').length,
+    ejecucion: obs.filter(o => o.estado === 'en_ejecucion').length,
+    verificacion: obs.filter(o => o.estado === 'en_verificacion').length,
+    levantada: obs.filter(o => o.estado === 'levantada').length,
   }
 
   if (loading) return (
-    <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', background: '#111827', color: 'white',
+      fontFamily: 'system-ui, sans-serif'
+    }}>
       Cargando dashboard...
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-6">
+    <div style={{ minHeight: '100vh', background: '#111827', color: 'white', padding: '24px', fontFamily: 'system-ui, sans-serif' }}>
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <div className="bg-red-600 p-2 rounded-lg">
-            <span className="text-xl">📊</span>
-          </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ background: '#c0392b', padding: '8px', borderRadius: '10px', fontSize: '20px' }}>📊</div>
           <div>
-            <h1 className="text-2xl font-bold">Dashboard</h1>
-            <p className="text-gray-400 text-sm">Resumen de observaciones {anio}</p>
+            <h1 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Dashboard de Auditorias</h1>
+            <p style={{ color: '#9ca3af', fontSize: '13px', margin: 0 }}>Resumen y tendencias {anio}</p>
           </div>
         </div>
         <button
           onClick={() => navigate('/tablero')}
-          className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition"
+          style={{
+            background: '#374151', border: 'none', color: 'white',
+            padding: '8px 16px', borderRadius: '8px', fontSize: '13px',
+            cursor: 'pointer', fontFamily: 'system-ui, sans-serif'
+          }}
         >
           ← Volver al Tablero
         </button>
       </div>
 
       {/* Tarjetas resumen */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '28px' }}>
         {[
-          { label: 'Total', value: total, color: 'bg-gray-700' },
-          { label: 'Sin Fecha', value: porEstado.sinFecha, color: 'bg-red-900' },
-          { label: 'En Ejecución', value: porEstado.ejecucion, color: 'bg-blue-900' },
-          { label: 'En Verificación', value: porEstado.verificacion, color: 'bg-purple-900' },
-          { label: 'Levantadas', value: porEstado.levantada, color: 'bg-green-900' },
+          { label: 'Total', value: total, bg: '#374151' },
+          { label: 'Sin Fecha', value: porEstado.sinFecha, bg: '#7f1d1d' },
+          { label: 'En Ejecucion', value: porEstado.ejecucion, bg: '#1e3a5f' },
+          { label: 'En Verificacion', value: porEstado.verificacion, bg: '#3b0764' },
+          { label: 'Levantadas', value: porEstado.levantada, bg: '#14532d' },
         ].map(card => (
-          <div key={card.label} className={`${card.color} rounded-xl p-4 text-center`}>
-            <div className="text-3xl font-bold">{card.value}</div>
-            <div className="text-gray-300 text-sm mt-1">{card.label}</div>
+          <div key={card.label} style={{
+            background: card.bg, borderRadius: '12px',
+            padding: '16px', textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '32px', fontWeight: '800' }}>{card.value}</div>
+            <div style={{ color: '#d1d5db', fontSize: '12px', marginTop: '4px' }}>{card.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Gráficos fila 1 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        {/* Pie por tipo */}
-        <div className="bg-gray-800 rounded-xl p-5">
-          <h2 className="text-lg font-semibold mb-4">Distribución por Tipo</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={porTipo} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                {porTipo.map((_, i) => (
-                  <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
+      {/* Fila 1 — Pie + Por Area */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+
+        <div style={{ background: '#1f2937', borderRadius: '12px', padding: '20px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', marginTop: 0 }}>
+            Distribucion por Tipo
+          </h2>
+          {porSeveridad.length === 0 ? (
+            <div style={{ color: '#6b7280', textAlign: 'center', padding: '40px 0', fontSize: '13px' }}>
+              Sin datos aun
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <PieChart>
+                <Pie
+                  data={porSeveridad}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%" cy="50%"
+                  outerRadius={85}
+                  label={({ name, percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
+                >
+                  {porSeveridad.map((_, i) => (
+                    <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
-        {/* Barras por área */}
-        <div className="bg-gray-800 rounded-xl p-5">
-          <h2 className="text-lg font-semibold mb-4">Por Área y Tipo</h2>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={porArea}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="area" tick={{ fill: '#9ca3af', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#9ca3af' }} allowDecimals={false} />
-              <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
-              <Legend />
-              {TIPOS.map(t => (
-                <Bar key={t} dataKey={t} stackId="a" fill={COLORES_TIPO[t]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+        <div style={{ background: '#1f2937', borderRadius: '12px', padding: '20px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', marginTop: 0 }}>
+            Por Area
+          </h2>
+          {porArea.length === 0 ? (
+            <div style={{ color: '#6b7280', textAlign: 'center', padding: '40px 0', fontSize: '13px' }}>
+              Sin datos aun
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={porArea}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="area" tick={{ fill: '#9ca3af', fontSize: 11 }} />
+                <YAxis tick={{ fill: '#9ca3af' }} allowDecimals={false} />
+                <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
+                <Legend />
+                {SEVERIDADES.map(s => (
+                  <Bar key={s} dataKey={s} stackId="a" fill={COLORES_SEV[s]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
-      {/* Gráfico por mes */}
-      <div className="bg-gray-800 rounded-xl p-5">
-        <h2 className="text-lg font-semibold mb-4">Observaciones por Mes — {anio}</h2>
+      {/* Fila 2 — Por Subarea */}
+      <div style={{ background: '#1f2937', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', marginTop: 0 }}>
+          Detalle por Subarea
+        </h2>
+        {porSubarea.length === 0 ? (
+          <div style={{ color: '#6b7280', textAlign: 'center', padding: '40px 0', fontSize: '13px' }}>
+            Sin datos de subarea aun — las nuevas observaciones ya incluiran subarea
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={porSubarea}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="subarea" tick={{ fill: '#9ca3af', fontSize: 11 }} />
+              <YAxis tick={{ fill: '#9ca3af' }} allowDecimals={false} />
+              <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
+              <Legend />
+              {SEVERIDADES.map(s => (
+                <Bar key={s} dataKey={s} stackId="a" fill={COLORES_SEV[s]} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Fila 3 — Historico por mes */}
+      <div style={{ background: '#1f2937', borderRadius: '12px', padding: '20px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', marginTop: 0 }}>
+          Historico Mensual — {anio}
+        </h2>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={porMes}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -165,12 +250,13 @@ export default function Dashboard() {
             <YAxis tick={{ fill: '#9ca3af' }} allowDecimals={false} />
             <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: 'none' }} />
             <Legend />
-            {TIPOS.map(t => (
-              <Bar key={t} dataKey={t} stackId="a" fill={COLORES_TIPO[t]} />
+            {SEVERIDADES.map(s => (
+              <Bar key={s} dataKey={s} stackId="a" fill={COLORES_SEV[s]} />
             ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
+
     </div>
   )
 }
