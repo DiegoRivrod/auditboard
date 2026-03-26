@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase } from './lib/supabase'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell, ResponsiveContainer
@@ -175,7 +175,7 @@ export default function Dashboard() {
                   nameKey="name"
                   cx="50%" cy="50%"
                   outerRadius={85}
-                  label={({ name, percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
+                  label={({ percent }) => `${((percent ?? 0) * 100).toFixed(0)}%`}
                 >
                   {porSeveridad.map((_, i) => (
                     <Cell key={i} fill={COLORES_PIE[i % COLORES_PIE.length]} />
