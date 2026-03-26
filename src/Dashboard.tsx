@@ -20,14 +20,26 @@ interface ObsData {
   severidad: string
   estado: string
   created_at: string
-  area_responsable: { nombre: string } | null
-  subarea: { nombre: string } | null
+  area_responsable: { nombre: string }[] | null
+  subarea: { nombre: string }[] | null
 }
 
 function getSevLabel(sev: string) {
   if (sev === 'critica') return 'No Conformidad'
   if (sev === 'mayor') return 'Observacion'
   return 'Oportunidad de Mejora'
+}
+
+function getAreaNombre(obs: ObsData): string {
+  if (!obs.area_responsable) return ''
+  if (Array.isArray(obs.area_responsable)) return obs.area_responsable[0]?.nombre || ''
+  return (obs.area_responsable as any)?.nombre || ''
+}
+
+function getSubareaNombre(obs: ObsData): string {
+  if (!obs.subarea) return ''
+  if (Array.isArray(obs.subarea)) return obs.subarea[0]?.nombre || ''
+  return (obs.subarea as any)?.nombre || ''
 }
 
 export default function Dashboard() {
@@ -44,43 +56,35 @@ export default function Dashboard() {
           area_responsable:areas(nombre),
           subarea:subareas(nombre)
         `)
-      if (!error && data) setObs(data as ObsData[])
+      if (!error && data) setObs(data as unknown as ObsData[])
       setLoading(false)
     }
     fetchData()
   }, [])
 
-  // Por severidad (pie)
   const porSeveridad = SEVERIDADES.map(s => ({
     name: s,
     value: obs.filter(o => getSevLabel(o.severidad) === s).length
   })).filter(d => d.value > 0)
 
-  // Por area y severidad (barras)
-  const areas = [...new Set(obs.map(o => o.area_responsable?.nombre).filter(Boolean))] as string[]
+  const areas = [...new Set(obs.map(o => getAreaNombre(o)).filter(Boolean))]
   const porArea = areas.map(area => {
     const row: Record<string, string | number> = { area }
     SEVERIDADES.forEach(s => {
-      row[s] = obs.filter(o =>
-        o.area_responsable?.nombre === area && getSevLabel(o.severidad) === s
-      ).length
+      row[s] = obs.filter(o => getAreaNombre(o) === area && getSevLabel(o.severidad) === s).length
     })
     return row
   })
 
-  // Por subarea y severidad (barras)
-  const subareas = [...new Set(obs.map(o => o.subarea?.nombre).filter(Boolean))] as string[]
+  const subareas = [...new Set(obs.map(o => getSubareaNombre(o)).filter(Boolean))]
   const porSubarea = subareas.map(sub => {
     const row: Record<string, string | number> = { subarea: sub }
     SEVERIDADES.forEach(s => {
-      row[s] = obs.filter(o =>
-        o.subarea?.nombre === sub && getSevLabel(o.severidad) === s
-      ).length
+      row[s] = obs.filter(o => getSubareaNombre(o) === sub && getSevLabel(o.severidad) === s).length
     })
     return row
   })
 
-  // Por mes
   const anio = new Date().getFullYear()
   const porMes = MESES.map((mes, i) => {
     const row: Record<string, string | number> = { mes }
@@ -96,7 +100,6 @@ export default function Dashboard() {
   const total = obs.length
   const porEstado = {
     sinFecha: obs.filter(o => o.estado === 'sin_fecha').length,
-    comprometida: obs.filter(o => o.estado === 'fecha_comprometida').length,
     ejecucion: obs.filter(o => o.estado === 'en_ejecucion').length,
     verificacion: obs.filter(o => o.estado === 'en_verificacion').length,
     levantada: obs.filter(o => o.estado === 'levantada').length,
@@ -137,12 +140,11 @@ export default function Dashboard() {
       </div>
 
       {/* Tarjetas resumen */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '28px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '28px' }}>
         {[
           { label: 'Total', value: total, bg: '#374151' },
           { label: 'Sin Fecha', value: porEstado.sinFecha, bg: '#7f1d1d' },
           { label: 'En Ejecucion', value: porEstado.ejecucion, bg: '#1e3a5f' },
-          { label: 'En Verificacion', value: porEstado.verificacion, bg: '#3b0764' },
           { label: 'Levantadas', value: porEstado.levantada, bg: '#14532d' },
         ].map(card => (
           <div key={card.label} style={{
@@ -157,7 +159,6 @@ export default function Dashboard() {
 
       {/* Fila 1 — Pie + Por Area */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-
         <div style={{ background: '#1f2937', borderRadius: '12px', padding: '20px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px', marginTop: 0 }}>
             Distribucion por Tipo
@@ -220,7 +221,7 @@ export default function Dashboard() {
         </h2>
         {porSubarea.length === 0 ? (
           <div style={{ color: '#6b7280', textAlign: 'center', padding: '40px 0', fontSize: '13px' }}>
-            Sin datos de subarea aun — las nuevas observaciones ya incluiran subarea
+            Sin datos de subarea aun
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
