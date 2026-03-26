@@ -59,7 +59,7 @@ export default function Tablero() {
 
     const { data: obs } = await supabase
       .from('observaciones')
-      .select('*, area_responsable:areas(*)')
+      .select('*, area_responsable:areas(*), subarea:subareas(*)')
       .order('created_at', { ascending: false })
 
     setObservaciones(obs || [])
@@ -264,10 +264,18 @@ export default function Tablero() {
                       <div style={{
                         fontSize: '11px', fontWeight: '700', textTransform: 'uppercase',
                         color: COLORES_AREA[obs.area_responsable?.codigo] || '#666',
-                        marginBottom: '5px'
+                        marginBottom: '3px'
                       }}>
                         {obs.area_responsable?.nombre}
                       </div>
+			{obs.subarea && (
+				<div style={{
+					fontSize: '10px', color: '#7a8aaa',
+    					marginBottom: '5px', fontWeight: '500'
+  					}}>
+    					{obs.subarea.nombre}
+  					</div>
+					)}
                       <p style={{ fontSize: '13px', fontWeight: '600', color: '#1a2234', lineHeight: '1.35', margin: 0 }}>
                         {obs.titulo}
                       </p>

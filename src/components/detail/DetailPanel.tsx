@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 
 interface Props {
@@ -23,6 +23,24 @@ const ESTADOS = [
   { id: 'levantada', label: 'Levantada', color: '#22c55e' },
 ]
 
+function formatFecha(fecha: string) {
+  const d = new Date(fecha)
+  return d.toLocaleDateString('es-PE', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  })
+}
+
+function getLabelEstado(estado: string) {
+  const e = ESTADOS.find(e => e.id === estado)
+  return e?.label || estado
+}
+
+function getColorEstado(estado: string) {
+  const e = ESTADOS.find(e => e.id === estado)
+  return e?.color || '#666'
+}
+
 export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: Props) {
   const [estado, setEstado] = useState(obs.estado)
   const [porcentaje, setPorcentaje] = useState(obs.porcentaje_avance)
@@ -31,6 +49,20 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
   const [comentario, setComentario] = useState('')
   const [loading, setLoading] = useState(false)
   const [guardado, setGuardado] = useState(false)
+  const [historial, setHistorial] = useState<any[]>([])
+
+  useEffect(() => {
+    cargarHistorial()
+  }, [obs.id])
+
+  async function cargarHistorial() {
+    const { data } = await supabase
+      .from('actualizaciones')
+      .select('*, usuario:perfiles(nombre_completo, area:areas(codigo))')
+      .eq('observacion_id', obs.id)
+      .order('created_at', { ascending: true })
+    setHistorial(data || [])
+  }
 
   async function handleGuardar() {
     setLoading(true)
@@ -58,7 +90,7 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
         observacion_id: obs.id,
         usuario_id: usuarioId,
         tipo: 'cambio_estado',
-        contenido: comentario,
+        contenido: comentario || null,
         estado_anterior: obs.estado,
         estado_nuevo: estado,
         porcentaje_anterior: obs.porcentaje_avance,
@@ -76,6 +108,23 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
 
   const colorArea = COLORES_AREA[obs.area_responsable?.codigo] || '#666'
 
+  const inputStyle = {
+    width: '100%', padding: '9px 12px',
+    background: '#f7f9fc', border: '1px solid #e2e8f0',
+    borderRadius: '7px', fontSize: '13px',
+    fontFamily: 'system-ui, sans-serif',
+    color: '#1a2234', outline: 'none',
+    boxSizing: 'border-box' as const
+  }
+
+  const labelStyle = {
+    display: 'block' as const,
+    fontSize: '11px', fontWeight: '700' as const,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px', color: '#7a8aaa',
+    marginBottom: '5px'
+  }
+
   return (
     <div style={{
       position: 'fixed', top: 0, right: 0, bottom: 0,
@@ -87,6 +136,7 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
       display: 'flex', flexDirection: 'column'
     }}>
 
+      {/* CABECERA */}
       <div style={{
         padding: '20px 22px 16px',
         borderBottom: '1px solid #e2e8f0',
@@ -104,7 +154,7 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
                 background: obs.severidad === 'critica' ? '#fee2e2' : obs.severidad === 'mayor' ? '#fef3c7' : '#dbeafe',
                 color: obs.severidad === 'critica' ? '#c0392b' : obs.severidad === 'mayor' ? '#b45309' : '#1a6fb5'
               }}>
-                {obs.severidad === 'critica' ? 'No Conforme' : obs.severidad === 'mayor' ? 'Observacion' : 'Oportunidad de Mejora'}
+                {obs.severidad === 'critica' ? 'No Conformidad' : obs.severidad === 'mayor' ? 'Observacion' : 'Oportunidad de Mejora'}
               </span>
             </div>
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#1a2234', lineHeight: '1.3' }}>
@@ -119,60 +169,78 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
             flexShrink: 0
           }}>x</button>
         </div>
-        <div style={{
-          display: 'inline-flex', alignItems: 'center', gap: '6px',
-          marginTop: '10px', padding: '4px 10px', borderRadius: '6px',
-          border: '1px solid ' + colorArea + '40',
-          background: colorArea + '15'
-        }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colorArea }} />
-          <span style={{ fontSize: '12px', fontWeight: '700', color: colorArea }}>
-            {obs.area_responsable?.nombre}
-          </span>
+
+        {/* Area y Subarea */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
+            padding: '4px 10px', borderRadius: '6px',
+            border: '1px solid ' + colorArea + '40',
+            background: colorArea + '15'
+          }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colorArea }} />
+            <span style={{ fontSize: '12px', fontWeight: '700', color: colorArea }}>
+              {obs.area_responsable?.nombre}
+            </span>
+          </div>
+          {obs.subarea && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px',
+              padding: '4px 10px', borderRadius: '6px',
+              border: '1px solid #e2e8f0', background: '#f7f9fc'
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: '600', color: '#7a8aaa' }}>
+                📍 {obs.subarea.nombre}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* CUERPO */}
       <div style={{ padding: '20px 22px', flex: 1 }}>
 
         {obs.descripcion && (
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7a8aaa', marginBottom: '5px' }}>Descripcion</div>
-            <p style={{ fontSize: '13px', color: '#4a5568', lineHeight: '1.5', margin: 0 }}>{obs.descripcion}</p>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={labelStyle}>Descripcion</div>
+            <p style={{ fontSize: '13px', color: '#4a5568', lineHeight: '1.5', margin: 0 }}>
+              {obs.descripcion}
+            </p>
           </div>
         )}
 
         {obs.accion_requerida && (
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7a8aaa', marginBottom: '5px' }}>Accion Requerida</div>
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', color: '#92400e' }}>
+          <div style={{ marginBottom: '16px' }}>
+            <div style={labelStyle}>Accion Requerida</div>
+            <div style={{
+              background: '#fffbeb', border: '1px solid #fde68a',
+              borderRadius: '8px', padding: '10px 12px',
+              fontSize: '13px', color: '#92400e'
+            }}>
               {obs.accion_requerida}
             </div>
           </div>
         )}
 
-        <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 20px' }} />
+        <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 16px' }} />
 
-        <div style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#b0bdd4', marginBottom: '16px' }}>
+        <div style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#b0bdd4', marginBottom: '14px' }}>
           Respuesta del Area
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7a8aaa', marginBottom: '5px' }}>Fecha de inicio</label>
-            <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', background: '#f7f9fc', border: '1px solid #e2e8f0', borderRadius: '7px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+            <label style={labelStyle}>Fecha de inicio</label>
+            <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} style={inputStyle} />
           </div>
           <div>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7a8aaa', marginBottom: '5px' }}>Fecha cierre est.</label>
-            <input type="date" value={fechaCierre} onChange={e => setFechaCierre(e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', background: '#f7f9fc', border: '1px solid #e2e8f0', borderRadius: '7px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }} />
+            <label style={labelStyle}>Fecha cierre est.</label>
+            <input type="date" value={fechaCierre} onChange={e => setFechaCierre(e.target.value)} style={inputStyle} />
           </div>
         </div>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7a8aaa', marginBottom: '5px' }}>
-            Avance - {porcentaje}%
-          </label>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={labelStyle}>Avance — {porcentaje}%</label>
           <input type="range" min="0" max="100" step="5" value={porcentaje}
             onChange={e => setPorcentaje(Number(e.target.value))}
             style={{ width: '100%' }} />
@@ -181,8 +249,8 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
           </div>
         </div>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7a8aaa', marginBottom: '5px' }}>Estado actual</label>
+        <div style={{ marginBottom: '14px' }}>
+          <label style={labelStyle}>Estado actual</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {ESTADOS.map(e => (
               <div key={e.id} onClick={() => setEstado(e.id)} style={{
@@ -200,21 +268,91 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
           </div>
         </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#7a8aaa', marginBottom: '5px' }}>Comentario</label>
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>Comentario</label>
           <textarea value={comentario} onChange={e => setComentario(e.target.value)}
             placeholder="Describe el avance, materiales, bloqueos..."
-            style={{ width: '100%', padding: '9px 12px', background: '#f7f9fc', border: '1px solid #e2e8f0', borderRadius: '7px', fontSize: '13px', fontFamily: 'system-ui, sans-serif', outline: 'none', minHeight: '80px', resize: 'vertical', boxSizing: 'border-box' }} />
+            style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' as const }} />
         </div>
 
         <button onClick={handleGuardar} disabled={loading || guardado} style={{
           width: '100%', padding: '12px',
           background: guardado ? '#22c55e' : loading ? '#999' : colorArea,
           color: 'white', border: 'none', borderRadius: '8px',
-          fontSize: '14px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer'
+          fontSize: '14px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer',
+          transition: 'background 0.3s'
         }}>
           {guardado ? 'Guardado exitosamente' : loading ? 'Guardando...' : 'Guardar y Notificar a Calidad'}
         </button>
+
+        {/* HISTORIAL */}
+        <div style={{ marginTop: '28px' }}>
+          <div style={{ height: '1px', background: '#e2e8f0', marginBottom: '16px' }} />
+          <div style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#b0bdd4', marginBottom: '16px' }}>
+            Historial de Actividad
+          </div>
+
+          {historial.length === 0 ? (
+            <div style={{ color: '#c0cce0', fontSize: '12px', textAlign: 'center', padding: '20px 0' }}>
+              Sin actividad registrada aun
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {historial.map((item, idx) => {
+                const colorUsuario = COLORES_AREA[item.usuario?.area?.codigo] || '#666'
+                const esUltimo = idx === historial.length - 1
+                return (
+                  <div key={item.id} style={{ display: 'flex', gap: '12px', paddingBottom: esUltimo ? '0' : '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '28px', flexShrink: 0 }}>
+                      <div style={{
+                        width: '10px', height: '10px', borderRadius: '50%',
+                        background: item.estado_nuevo ? getColorEstado(item.estado_nuevo) : colorUsuario,
+                        flexShrink: 0, marginTop: '3px'
+                      }} />
+                      {!esUltimo && (
+                        <div style={{ width: '2px', flex: 1, background: '#e2e8f0', marginTop: '4px' }} />
+                      )}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12.5px', fontWeight: '600', color: '#1a2234', marginBottom: '2px' }}>
+                        {item.estado_nuevo ? (
+                          <>
+                            Estado cambiado a{' '}
+                            <span style={{ color: getColorEstado(item.estado_nuevo), fontWeight: '700' }}>
+                              {getLabelEstado(item.estado_nuevo)}
+                            </span>
+                            {item.porcentaje_nuevo !== null && item.porcentaje_nuevo !== undefined && (
+                              <span style={{ color: '#7a8aaa' }}> — {item.porcentaje_nuevo}% avance</span>
+                            )}
+                          </>
+                        ) : (
+                          'Actualizacion registrada'
+                        )}
+                      </div>
+                      {item.contenido && (
+                        <div style={{
+                          fontSize: '12px', color: '#4a5568',
+                          background: '#f7f9fc', border: '1px solid #e2e8f0',
+                          borderRadius: '6px', padding: '7px 10px',
+                          marginTop: '5px', lineHeight: '1.4'
+                        }}>
+                          {item.contenido}
+                        </div>
+                      )}
+                      <div style={{ fontSize: '11px', color: '#b0bdd4', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontWeight: '600', color: colorUsuario }}>
+                          {item.usuario?.nombre_completo || 'Usuario'}
+                        </span>
+                        <span>·</span>
+                        <span>{formatFecha(item.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
       </div>
     </div>
