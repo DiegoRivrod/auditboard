@@ -327,6 +327,7 @@ export default function Tablero() {
         <DetailPanel
           obs={obsSeleccionada}
           usuarioId={usuario?.id}
+          esCalidad={esCalidad}
           onClose={() => setObsSeleccionada(null)}
           onActualizada={() => {
             setObsSeleccionada(null)

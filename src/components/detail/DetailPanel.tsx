@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 interface Props {
   obs: any
   usuarioId: string
+  esCalidad?: boolean
   onClose: () => void
   onActualizada: () => void
 }
@@ -41,7 +42,14 @@ function getColorEstado(estado: string) {
   return e?.color || '#666'
 }
 
-export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: Props) {
+const TIPOS = ['estructura', 'maquinaria', 'producto', 'documentacion', 'seguridad']
+const SEVERIDADES = [
+  { id: 'critica', label: 'No Conformidad', bg: '#fee2e2', color: '#c0392b' },
+  { id: 'mayor', label: 'Observacion', bg: '#fef3c7', color: '#b45309' },
+  { id: 'menor', label: 'Oportunidad de Mejora', bg: '#dbeafe', color: '#1a6fb5' },
+]
+
+export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActualizada }: Props) {
   const [estado, setEstado] = useState(obs.estado)
   const [porcentaje, setPorcentaje] = useState(obs.porcentaje_avance)
   const [fechaInicio, setFechaInicio] = useState(obs.fecha_inicio_comprometida || '')
@@ -50,6 +58,14 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
   const [loading, setLoading] = useState(false)
   const [guardado, setGuardado] = useState(false)
   const [historial, setHistorial] = useState<any[]>([])
+
+  // Campos editables solo para Calidad
+  const [titulo, setTitulo] = useState(obs.titulo || '')
+  const [descripcion, setDescripcion] = useState(obs.descripcion || '')
+  const [accionRequerida, setAccionRequerida] = useState(obs.accion_requerida || '')
+  const [tipo, setTipo] = useState(obs.tipo || '')
+  const [severidad, setSeveridad] = useState(obs.severidad || '')
+  const [ubicacion, setUbicacion] = useState(obs.ubicacion || '')
 
   useEffect(() => {
     cargarHistorial()
@@ -75,6 +91,14 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
         fecha_inicio_comprometida: fechaInicio || null,
         fecha_cierre_estimada: fechaCierre || null,
         ...(estado === 'levantada' && { fecha_cierre_real: new Date().toISOString() }),
+        ...(esCalidad && {
+          titulo,
+          descripcion: descripcion || null,
+          accion_requerida: accionRequerida || null,
+          tipo,
+          severidad,
+          ubicacion: ubicacion || null,
+        }),
       })
       .eq('id', obs.id)
 
@@ -151,14 +175,14 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
               </span>
               <span style={{
                 fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '4px',
-                background: obs.severidad === 'critica' ? '#fee2e2' : obs.severidad === 'mayor' ? '#fef3c7' : '#dbeafe',
-                color: obs.severidad === 'critica' ? '#c0392b' : obs.severidad === 'mayor' ? '#b45309' : '#1a6fb5'
+                background: severidad === 'critica' ? '#fee2e2' : severidad === 'mayor' ? '#fef3c7' : '#dbeafe',
+                color: severidad === 'critica' ? '#c0392b' : severidad === 'mayor' ? '#b45309' : '#1a6fb5'
               }}>
-                {obs.severidad === 'critica' ? 'No Conformidad' : obs.severidad === 'mayor' ? 'Observacion' : 'Oportunidad de Mejora'}
+                {severidad === 'critica' ? 'No Conformidad' : severidad === 'mayor' ? 'Observacion' : 'Oportunidad de Mejora'}
               </span>
             </div>
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#1a2234', lineHeight: '1.3' }}>
-              {obs.titulo}
+              {titulo}
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -200,26 +224,80 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
       {/* CUERPO */}
       <div style={{ padding: '20px 22px', flex: 1 }}>
 
-        {obs.descripcion && (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={labelStyle}>Descripcion</div>
-            <p style={{ fontSize: '13px', color: '#4a5568', lineHeight: '1.5', margin: 0 }}>
-              {obs.descripcion}
-            </p>
-          </div>
-        )}
-
-        {obs.accion_requerida && (
-          <div style={{ marginBottom: '16px' }}>
-            <div style={labelStyle}>Accion Requerida</div>
+        {esCalidad ? (
+          <>
             <div style={{
-              background: '#fffbeb', border: '1px solid #fde68a',
-              borderRadius: '8px', padding: '10px 12px',
-              fontSize: '13px', color: '#92400e'
+              background: '#fff8f0', border: '1px solid #fde68a',
+              borderRadius: '8px', padding: '12px 14px', marginBottom: '16px'
             }}>
-              {obs.accion_requerida}
+              <div style={{ fontSize: '11px', fontWeight: '700', color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                Edicion — Solo Calidad
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Titulo</label>
+                <input value={titulo} onChange={e => setTitulo(e.target.value)} style={inputStyle} />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Descripcion</label>
+                <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)}
+                  style={{ ...inputStyle, minHeight: '70px', resize: 'vertical' as const }} />
+              </div>
+
+              <div style={{ marginBottom: '12px' }}>
+                <label style={labelStyle}>Accion Requerida</label>
+                <input value={accionRequerida} onChange={e => setAccionRequerida(e.target.value)} style={inputStyle} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Tipo</label>
+                  <select value={tipo} onChange={e => setTipo(e.target.value)} style={inputStyle}>
+                    {TIPOS.map(t => (
+                      <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Severidad</label>
+                  <select value={severidad} onChange={e => setSeveridad(e.target.value)} style={inputStyle}>
+                    {SEVERIDADES.map(s => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Ubicacion / Zona</label>
+                <input value={ubicacion} onChange={e => setUbicacion(e.target.value)} style={inputStyle} placeholder="Ej: Línea 3, Almacén Norte..." />
+              </div>
             </div>
-          </div>
+          </>
+        ) : (
+          <>
+            {obs.descripcion && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={labelStyle}>Descripcion</div>
+                <p style={{ fontSize: '13px', color: '#4a5568', lineHeight: '1.5', margin: 0 }}>
+                  {obs.descripcion}
+                </p>
+              </div>
+            )}
+            {obs.accion_requerida && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={labelStyle}>Accion Requerida</div>
+                <div style={{
+                  background: '#fffbeb', border: '1px solid #fde68a',
+                  borderRadius: '8px', padding: '10px 12px',
+                  fontSize: '13px', color: '#92400e'
+                }}>
+                  {obs.accion_requerida}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 16px' }} />
@@ -282,7 +360,7 @@ export default function DetailPanel({ obs, usuarioId, onClose, onActualizada }: 
           fontSize: '14px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer',
           transition: 'background 0.3s'
         }}>
-          {guardado ? 'Guardado exitosamente' : loading ? 'Guardando...' : 'Guardar y Notificar a Calidad'}
+          {guardado ? 'Guardado exitosamente' : loading ? 'Guardando...' : esCalidad ? 'Guardar Cambios' : 'Guardar y Notificar a Calidad'}
         </button>
 
         {/* HISTORIAL */}
