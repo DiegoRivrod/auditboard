@@ -66,10 +66,36 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
   const [tipo, setTipo] = useState(obs.tipo || '')
   const [severidad, setSeveridad] = useState(obs.severidad || '')
   const [ubicacion, setUbicacion] = useState(obs.ubicacion || '')
+  const [areaId, setAreaId] = useState(obs.area_responsable_id || '')
+  const [subareaId, setSubareaId] = useState(obs.subarea_id || '')
+  const [areas, setAreas] = useState<any[]>([])
+  const [subareas, setSubareas] = useState<any[]>([])
 
   useEffect(() => {
     cargarHistorial()
   }, [obs.id])
+
+  useEffect(() => {
+    if (esCalidad) cargarAreas()
+  }, [esCalidad])
+
+  useEffect(() => {
+    if (esCalidad && areaId) cargarSubareas(areaId)
+  }, [areaId, esCalidad])
+
+  async function cargarAreas() {
+    const { data } = await supabase.from('areas').select('*')
+    setAreas(data || [])
+  }
+
+  async function cargarSubareas(id: string) {
+    const { data } = await supabase.from('subareas').select('*').eq('area_id', id)
+    setSubareas(data || [])
+    // Si el area cambió y la subarea actual no pertenece a ella, resetear
+    if (id !== obs.area_responsable_id) {
+      setSubareaId(data && data.length > 0 ? data[0].id : '')
+    }
+  }
 
   async function cargarHistorial() {
     const { data } = await supabase
@@ -98,6 +124,8 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
           tipo,
           severidad,
           ubicacion: ubicacion || null,
+          area_responsable_id: areaId,
+          subarea_id: subareaId || null,
         }),
       })
       .eq('id', obs.id)
@@ -130,7 +158,8 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
     }, 1000)
   }
 
-  const colorArea = COLORES_AREA[obs.area_responsable?.codigo] || '#666'
+  const areaSeleccionada = esCalidad ? areas.find(a => a.id === areaId) : obs.area_responsable
+  const colorArea = COLORES_AREA[areaSeleccionada?.codigo] || '#666'
 
   const inputStyle = {
     width: '100%', padding: '9px 12px',
@@ -204,7 +233,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
           }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: colorArea }} />
             <span style={{ fontSize: '12px', fontWeight: '700', color: colorArea }}>
-              {obs.area_responsable?.nombre}
+              {areaSeleccionada?.nombre || obs.area_responsable?.nombre}
             </span>
           </div>
           {obs.subarea && (
@@ -232,6 +261,26 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
             }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
                 Edicion — Solo Calidad
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Area Responsable</label>
+                  <select value={areaId} onChange={e => setAreaId(e.target.value)} style={inputStyle}>
+                    {areas.map(a => (
+                      <option key={a.id} value={a.id}>{a.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Subarea</label>
+                  <select value={subareaId} onChange={e => setSubareaId(e.target.value)} style={inputStyle} disabled={subareas.length === 0}>
+                    {subareas.length === 0
+                      ? <option value="">Sin subareas</option>
+                      : subareas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)
+                    }
+                  </select>
+                </div>
               </div>
 
               <div style={{ marginBottom: '12px' }}>
