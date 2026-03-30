@@ -27,6 +27,8 @@ export default function Tablero() {
   const [mostrarModal, setMostrarModal] = useState(false)
   const [auditoriaId, setAuditoriaId] = useState('')
   const [obsSeleccionada, setObsSeleccionada] = useState<any>(null)
+  const [filtroTexto, setFiltroTexto] = useState('')
+  const [filtroArea, setFiltroArea] = useState('')
 
   useEffect(() => {
     cargarDatos()
@@ -84,8 +86,18 @@ export default function Tablero() {
     }
   }
 
+  const areasUnicas = [...new Set(observaciones.map(o => o.area_responsable?.codigo).filter(Boolean))]
+
+  const obsFiltradas = observaciones.filter(o => {
+    const textoOk = !filtroTexto ||
+      o.titulo?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
+      o.codigo?.toLowerCase().includes(filtroTexto.toLowerCase())
+    const areaOk = !filtroArea || o.area_responsable?.codigo === filtroArea
+    return textoOk && areaOk
+  })
+
   const obsPorEstado = (estado: string) =>
-    observaciones.filter(o => o.estado === estado)
+    obsFiltradas.filter(o => o.estado === estado)
 
   if (loading) return (
     <div style={{
@@ -98,7 +110,7 @@ export default function Tablero() {
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ height: '100vh', background: '#f0f2f5', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* TOPBAR */}
       <div style={{
@@ -178,7 +190,7 @@ export default function Tablero() {
       {/* STATS */}
       <div style={{
         background: 'white', borderBottom: '1px solid #e2e8f0',
-        padding: '12px 24px', display: 'flex', gap: '12px'
+        padding: '12px 24px', display: 'flex', gap: '12px', flexShrink: 0
       }}>
         {COLUMNAS.map(col => (
           <div key={col.id} style={{
@@ -196,11 +208,61 @@ export default function Tablero() {
         ))}
       </div>
 
+      {/* FILTROS */}
+      <div style={{
+        background: 'white', borderBottom: '1px solid #e2e8f0',
+        padding: '8px 24px', display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0
+      }}>
+        <input
+          type="text"
+          placeholder="Buscar por código o título..."
+          value={filtroTexto}
+          onChange={e => setFiltroTexto(e.target.value)}
+          style={{
+            flex: 1, maxWidth: '320px', padding: '6px 12px',
+            border: '1px solid #e2e8f0', borderRadius: '7px',
+            fontSize: '12px', outline: 'none', color: '#1a2234',
+            background: '#f8fafd'
+          }}
+        />
+        <select
+          value={filtroArea}
+          onChange={e => setFiltroArea(e.target.value)}
+          style={{
+            padding: '6px 10px', border: '1px solid #e2e8f0',
+            borderRadius: '7px', fontSize: '12px', color: '#1a2234',
+            background: '#f8fafd', cursor: 'pointer', outline: 'none'
+          }}
+        >
+          <option value="">Todas las áreas</option>
+          {areasUnicas.map(codigo => (
+            <option key={codigo} value={codigo}>{codigo}</option>
+          ))}
+        </select>
+        {(filtroTexto || filtroArea) && (
+          <button
+            onClick={() => { setFiltroTexto(''); setFiltroArea('') }}
+            style={{
+              padding: '6px 12px', border: '1px solid #fecaca',
+              borderRadius: '7px', fontSize: '12px', color: '#c0392b',
+              background: '#fef2f2', cursor: 'pointer', fontWeight: '600'
+            }}
+          >
+            Limpiar filtros
+          </button>
+        )}
+        {(filtroTexto || filtroArea) && (
+          <span style={{ fontSize: '11px', color: '#7a8aaa' }}>
+            {obsFiltradas.length} de {observaciones.length} observaciones
+          </span>
+        )}
+      </div>
+
       {/* TABLERO */}
-      <div style={{ padding: '20px 24px', overflowX: 'auto' }}>
-        <div style={{ display: 'flex', gap: '14px', minWidth: 'max-content' }}>
+      <div style={{ flex: 1, padding: '20px 24px', overflowX: 'auto', minHeight: 0 }}>
+        <div style={{ display: 'flex', gap: '14px', minWidth: 'max-content', height: '100%' }}>
           {COLUMNAS.map(col => (
-            <div key={col.id} style={{ width: '280px' }}>
+            <div key={col.id} style={{ width: '280px', display: 'flex', flexDirection: 'column', height: '100%' }}>
               <div style={{
                 background: col.bg, border: `1px solid ${col.border}`,
                 borderBottom: 'none', borderRadius: '10px 10px 0 0',
@@ -224,7 +286,7 @@ export default function Tablero() {
               <div style={{
                 background: '#f8fafd', border: '1px solid #e8edf5',
                 borderTop: 'none', borderRadius: '0 0 10px 10px',
-                minHeight: '400px', padding: '8px',
+                flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px',
                 display: 'flex', flexDirection: 'column', gap: '8px'
               }}>
                 {obsPorEstado(col.id).length === 0 ? (
