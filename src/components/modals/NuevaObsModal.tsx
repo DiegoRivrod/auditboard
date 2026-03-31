@@ -21,6 +21,8 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
     ubicacion: '',
     area_responsable_id: '',
     subarea_id: '',
+    fecha_inicio: '',
+    fecha_cierre: '',
   })
 
   useEffect(() => {
@@ -85,6 +87,8 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
         creado_por: usuarioId,
         estado: 'sin_fecha',
         porcentaje_avance: 0,
+        fecha_inicio: form.fecha_inicio || null,
+        fecha_cierre: form.fecha_cierre || null,
       })
 
     if (error) {
@@ -276,7 +280,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
           </div>
 
           {/* Accion y Ubicacion */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
             <div>
               <label style={labelStyle}>Accion requerida</label>
               <input
@@ -294,6 +298,28 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
                 value={form.ubicacion}
                 onChange={e => setForm(f => ({ ...f, ubicacion: e.target.value }))}
                 placeholder="Ej: Linea 2, Zona B..."
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          {/* Fechas */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+            <div>
+              <label style={labelStyle}>Fecha de Inicio</label>
+              <input
+                type="date"
+                value={form.fecha_inicio}
+                onChange={e => setForm(f => ({ ...f, fecha_inicio: e.target.value }))}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Fecha de Cierre</label>
+              <input
+                type="date"
+                value={form.fecha_cierre}
+                onChange={e => setForm(f => ({ ...f, fecha_cierre: e.target.value }))}
                 style={inputStyle}
               />
             </div>

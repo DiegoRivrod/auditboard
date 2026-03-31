@@ -15,7 +15,7 @@ const COLUMNAS = [
 const COLORES_AREA: Record<string, string> = {
   CALIDAD: '#c0392b',
   PRODUCCION: '#1a6fb5',
-  ALMACEN: '#d97706',
+  'LOGISTICA Y ALMACEN': '#d97706',
   MANTENIMIENTO: '#16a34a',
 }
 
