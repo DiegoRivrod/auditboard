@@ -387,6 +387,7 @@ export default function Tablero() {
 
       {obsSeleccionada && (
         <DetailPanel
+          key={obsSeleccionada.id}
           obs={obsSeleccionada}
           usuarioId={usuario?.id}
           esCalidad={esCalidad}
