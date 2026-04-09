@@ -64,12 +64,23 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
     if (!form.titulo || !form.area_responsable_id) return
     setLoading(true)
 
-    const { count } = await supabase
-      .from('observaciones')
-      .select('*', { count: 'exact', head: true })
-
     const year = new Date().getFullYear()
-    const codigo = `OBS-${year}-${String((count || 0) + 1).padStart(3, '0')}`
+    const prefix = `OBS-${year}-`
+
+    const { data: ultimaObs } = await supabase
+      .from('observaciones')
+      .select('codigo')
+      .like('codigo', `${prefix}%`)
+      .order('codigo', { ascending: false })
+      .limit(1)
+
+    let nextNum = 1
+    if (ultimaObs && ultimaObs.length > 0) {
+      const lastNum = parseInt(ultimaObs[0].codigo.replace(prefix, ''), 10)
+      if (!isNaN(lastNum)) nextNum = lastNum + 1
+    }
+
+    const codigo = `${prefix}${String(nextNum).padStart(3, '0')}`
 
     const { error } = await supabase
       .from('observaciones')
