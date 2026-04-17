@@ -109,21 +109,15 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
       return
     }
 
-    console.log('Observacion creada, buscando perfil del area...')
-
-    const { data: perfil, error: errorPerfil } = await supabase
+    const { data: perfil } = await supabase
       .from('perfiles')
       .select('*, area:areas(*)')
       .eq('area_id', form.area_responsable_id)
       .eq('rol', 'jefe')
       .single()
 
-    console.log('Perfil encontrado:', perfil)
-    console.log('Error perfil:', errorPerfil)
-
     if (perfil) {
-      console.log('Llamando Edge Function...')
-      const { data: respuesta, error: errorFn } = await supabase.functions.invoke('rapid-task', {
+      await supabase.functions.invoke('rapid-task', {
         body: {
           destinatario: 'diego.rivera.182@gmail.com',
           nombreDestinatario: perfil.nombre_completo,
@@ -132,8 +126,6 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
           areaResponsable: perfil.area?.nombre,
         }
       })
-      console.log('Respuesta Edge Function:', respuesta)
-      console.log('Error Edge Function:', errorFn)
     }
 
     setLoading(false)

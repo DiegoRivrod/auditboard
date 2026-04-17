@@ -148,6 +148,7 @@ export default function Dashboard() {
       } else if (data) {
         setObs(data as unknown as ObsDashboard[])
       }
+
       setLoading(false)
     }
     fetchData()
