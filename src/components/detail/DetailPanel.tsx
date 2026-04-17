@@ -1,19 +1,14 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { COLORES_AREA, TIPOS, SEVERIDADES, inputStyle, labelStyle } from '../../constants'
+import type { Observacion } from '../../types'
 
 interface Props {
-  obs: any
+  obs: Observacion
   usuarioId: string
   esCalidad?: boolean
   onClose: () => void
   onActualizada: () => void
-}
-
-const COLORES_AREA: Record<string, string> = {
-  CALIDAD: '#c0392b',
-  PRODUCCION: '#1a6fb5',
-  'LOGISTICA Y ALMACEN': '#d97706',
-  MANTENIMIENTO: '#16a34a',
 }
 
 const ESTADOS = [
@@ -41,13 +36,6 @@ function getColorEstado(estado: string) {
   const e = ESTADOS.find(e => e.id === estado)
   return e?.color || '#666'
 }
-
-const TIPOS = ['estructura', 'maquinaria', 'producto', 'documentacion', 'seguridad', 'limpieza']
-const SEVERIDADES = [
-  { id: 'critica', label: 'No Conformidad', bg: '#fee2e2', color: '#c0392b' },
-  { id: 'mayor', label: 'Observacion', bg: '#fef3c7', color: '#b45309' },
-  { id: 'menor', label: 'Oportunidad de Mejora', bg: '#dbeafe', color: '#1a6fb5' },
-]
 
 export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActualizada }: Props) {
   const [estado, setEstado] = useState(obs.estado)
@@ -159,24 +147,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
   }
 
   const areaSeleccionada = esCalidad ? areas.find(a => a.id === areaId) : obs.area_responsable
-  const colorArea = COLORES_AREA[areaSeleccionada?.codigo] || '#666'
-
-  const inputStyle = {
-    width: '100%', padding: '9px 12px',
-    background: '#f7f9fc', border: '1px solid #e2e8f0',
-    borderRadius: '7px', fontSize: '13px',
-    fontFamily: 'system-ui, sans-serif',
-    color: '#1a2234', outline: 'none',
-    boxSizing: 'border-box' as const
-  }
-
-  const labelStyle = {
-    display: 'block' as const,
-    fontSize: '11px', fontWeight: '700' as const,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px', color: '#7a8aaa',
-    marginBottom: '5px'
-  }
+  const colorArea = COLORES_AREA[areaSeleccionada?.codigo || ''] || '#666'
 
   return (
     <div style={{
@@ -302,7 +273,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <div>
                   <label style={labelStyle}>Tipo</label>
-                  <select value={tipo} onChange={e => setTipo(e.target.value)} style={inputStyle}>
+                  <select value={tipo} onChange={e => setTipo(e.target.value as typeof TIPOS[number])} style={inputStyle}>
                     {TIPOS.map(t => (
                       <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
                     ))}
@@ -310,7 +281,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
                 </div>
                 <div>
                   <label style={labelStyle}>Severidad</label>
-                  <select value={severidad} onChange={e => setSeveridad(e.target.value)} style={inputStyle}>
+                  <select value={severidad} onChange={e => setSeveridad(e.target.value as typeof SEVERIDADES[number]['id'])} style={inputStyle}>
                     {SEVERIDADES.map(s => (
                       <option key={s.id} value={s.id}>{s.label}</option>
                     ))}
@@ -380,7 +351,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
           <label style={labelStyle}>Estado actual</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {ESTADOS.map(e => (
-              <div key={e.id} onClick={() => setEstado(e.id)} style={{
+              <div key={e.id} onClick={() => setEstado(e.id as typeof obs.estado)} style={{
                 padding: '9px 12px', borderRadius: '8px', cursor: 'pointer',
                 fontSize: '13px', fontWeight: '600',
                 border: '2px solid ' + (estado === e.id ? e.color : '#e2e8f0'),
@@ -426,7 +397,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {historial.map((item, idx) => {
-                const colorUsuario = COLORES_AREA[item.usuario?.area?.codigo] || '#666'
+                const colorUsuario = COLORES_AREA[item.usuario?.area?.codigo || ''] || '#666'
                 const esUltimo = idx === historial.length - 1
                 return (
                   <div key={item.id} style={{ display: 'flex', gap: '12px', paddingBottom: esUltimo ? '0' : '16px' }}>

@@ -22,6 +22,12 @@ export interface Area {
   color: string
 }
 
+export interface Subarea {
+  id: string
+  nombre: string
+  area_id: string
+}
+
 export interface Perfil {
   id: string
   nombre_completo: string
@@ -41,6 +47,7 @@ export interface Observacion {
   accion_requerida?: string
   ubicacion?: string
   area_responsable_id: string
+  subarea_id?: string
   responsable_id?: string
   creado_por: string
   estado: EstadoObservacion
@@ -51,6 +58,7 @@ export interface Observacion {
   created_at: string
   updated_at: string
   area_responsable?: Area
+  subarea?: Subarea
   responsable?: Perfil
 }
 

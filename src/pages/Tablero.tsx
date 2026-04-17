@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import NuevaObsModal from '../components/modals/NuevaObsModal'
 import DetailPanel from '../components/detail/DetailPanel'
+import { COLORES_AREA, SEVERIDADES } from '../constants'
+import type { Observacion, Perfil } from '../types'
 
 const COLUMNAS = [
   { id: 'sin_fecha', titulo: 'Sin Fecha', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
@@ -12,21 +14,14 @@ const COLUMNAS = [
   { id: 'levantada', titulo: 'Levantada', color: '#22c55e', bg: '#f0fdf4', border: '#bbf7d0' },
 ]
 
-const COLORES_AREA: Record<string, string> = {
-  CALIDAD: '#c0392b',
-  PRODUCCION: '#1a6fb5',
-  'LOGISTICA Y ALMACEN': '#d97706',
-  MANTENIMIENTO: '#16a34a',
-}
-
 export default function Tablero() {
   const navigate = useNavigate()
-  const [observaciones, setObservaciones] = useState<any[]>([])
+  const [observaciones, setObservaciones] = useState<Observacion[]>([])
   const [loading, setLoading] = useState(true)
-  const [usuario, setUsuario] = useState<any>(null)
+  const [usuario, setUsuario] = useState<Perfil | null>(null)
   const [mostrarModal, setMostrarModal] = useState(false)
   const [auditoriaId, setAuditoriaId] = useState('')
-  const [obsSeleccionada, setObsSeleccionada] = useState<any>(null)
+  const [obsSeleccionada, setObsSeleccionada] = useState<Observacion | null>(null)
   const [filtroTexto, setFiltroTexto] = useState('')
   const [filtroArea, setFiltroArea] = useState('')
 
@@ -137,7 +132,7 @@ export default function Tablero() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <div style={{
                 width: '30px', height: '30px', borderRadius: '7px',
-                background: COLORES_AREA[usuario.area?.codigo] || '#666',
+                background: COLORES_AREA[usuario.area?.codigo || ''] || '#666',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'white', fontSize: '11px', fontWeight: '700'
               }}>
@@ -305,7 +300,7 @@ export default function Tablero() {
                       style={{
                         background: 'white', border: '1px solid #e2e8f0',
                         borderRadius: '10px', padding: '12px',
-                        borderTop: `3px solid ${COLORES_AREA[obs.area_responsable?.codigo] || '#ccc'}`,
+                        borderTop: `3px solid ${COLORES_AREA[obs.area_responsable?.codigo || ''] || '#ccc'}`,
                         cursor: 'pointer',
                         boxShadow: obsSeleccionada?.id === obs.id ? '0 0 0 2px #3b82f6' : 'none',
                         transition: 'all 0.2s'
@@ -315,17 +310,21 @@ export default function Tablero() {
                         <span style={{ fontSize: '10px', fontWeight: '700', color: '#b0bdd4', textTransform: 'uppercase' }}>
                           {obs.codigo}
                         </span>
-                        <span style={{
-                          fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px',
-                          background: obs.severidad === 'critica' ? '#fee2e2' : obs.severidad === 'mayor' ? '#fef3c7' : '#dbeafe',
-                          color: obs.severidad === 'critica' ? '#c0392b' : obs.severidad === 'mayor' ? '#b45309' : '#1a6fb5'
-                        }}>
-                          {obs.severidad === 'critica' ? 'No Conformidad' : obs.severidad === 'mayor' ? 'Observacion' : 'Oportunidad de Mejora'}
-                        </span>
+                        {(() => {
+                          const sev = SEVERIDADES.find(s => s.id === obs.severidad)
+                          return sev ? (
+                            <span style={{
+                              fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '4px',
+                              background: sev.bg, color: sev.color
+                            }}>
+                              {sev.label}
+                            </span>
+                          ) : null
+                        })()}
                       </div>
                       <div style={{
                         fontSize: '11px', fontWeight: '700', textTransform: 'uppercase',
-                        color: COLORES_AREA[obs.area_responsable?.codigo] || '#666',
+                        color: COLORES_AREA[obs.area_responsable?.codigo || ''] || '#666',
                         marginBottom: '3px'
                       }}>
                         {obs.area_responsable?.nombre}
@@ -346,7 +345,7 @@ export default function Tablero() {
                           <div style={{ height: '4px', background: '#e8edf5', borderRadius: '4px', overflow: 'hidden' }}>
                             <div style={{
                               height: '100%', borderRadius: '4px',
-                              background: COLORES_AREA[obs.area_responsable?.codigo] || '#3b82f6',
+                              background: COLORES_AREA[obs.area_responsable?.codigo || ''] || '#3b82f6',
                               width: `${obs.porcentaje_avance}%`
                             }} />
                           </div>
@@ -389,7 +388,7 @@ export default function Tablero() {
         <DetailPanel
           key={obsSeleccionada.id}
           obs={obsSeleccionada}
-          usuarioId={usuario?.id}
+          usuarioId={usuario?.id ?? ''}
           esCalidad={esCalidad}
           onClose={() => setObsSeleccionada(null)}
           onActualizada={() => {
@@ -402,7 +401,7 @@ export default function Tablero() {
       {mostrarModal && (
         <NuevaObsModal
           auditoriaId={auditoriaId}
-          usuarioId={usuario?.id}
+          usuarioId={usuario?.id ?? ''}
           onClose={() => setMostrarModal(false)}
           onCreada={() => cargarDatos()}
         />

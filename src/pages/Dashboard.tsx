@@ -9,22 +9,12 @@ import {
   ArcElement, Tooltip, Legend, Title
 } from 'chart.js'
 import { Bar, Pie } from 'react-chartjs-2'
+import { COLORES_AREA, SEVERIDADES } from '../constants'
+import type { Observacion } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend, Title)
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-
-const SEVERIDAD_LABEL: Record<string, string> = {
-  critica: 'No Conformidad',
-  mayor: 'Observacion',
-  menor: 'Oportunidad de Mejora',
-}
-
-const SEVERIDAD_COLOR: Record<string, string> = {
-  critica: '#ef4444',
-  mayor: '#f59e0b',
-  menor: '#3b82f6',
-}
 
 const ESTADO_LABEL: Record<string, string> = {
   sin_fecha: 'Sin Fecha',
@@ -34,17 +24,8 @@ const ESTADO_LABEL: Record<string, string> = {
   levantada: 'Levantada',
 }
 
-const COLORES_AREA: Record<string, string> = {
-  CALIDAD: '#c0392b',
-  PRODUCCION: '#1a6fb5',
-  'LOGISTICA Y ALMACEN': '#d97706',
-  MANTENIMIENTO: '#16a34a',
-}
-
-interface Observacion {
-  severidad: string
-  estado: string
-  created_at: string
+// Proyección local — Dashboard solo necesita estos campos del join de Supabase
+type ObsDashboard = Pick<Observacion, 'severidad' | 'estado' | 'created_at'> & {
   area_responsable: { nombre: string; codigo: string } | null
   subarea: { nombre: string } | null
 }
@@ -152,7 +133,7 @@ const DISPLAY = "'Syne', sans-serif"
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [obs, setObs] = useState<Observacion[]>([])
+  const [obs, setObs] = useState<ObsDashboard[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -165,8 +146,7 @@ export default function Dashboard() {
         console.log('ERROR:', error)
         toast.error('Error al cargar los datos')
       } else if (data) {
-        setObs(data as unknown as Observacion[])
-        toast.success(`${data.length} observaciones cargadas`)
+        setObs(data as unknown as ObsDashboard[])
       }
       setLoading(false)
     }
@@ -174,7 +154,6 @@ export default function Dashboard() {
   }, [])
 
   const anio = new Date().getFullYear()
-  const SEVERIDADES = ['critica', 'mayor', 'menor']
   const total = obs.length
   const estados = Object.keys(ESTADO_LABEL)
 
@@ -184,10 +163,10 @@ export default function Dashboard() {
   // --- Datos para gráficos ---
 
   const pieData = {
-    labels: SEVERIDADES.map(s => SEVERIDAD_LABEL[s]),
+    labels: SEVERIDADES.map(s => s.label),
     datasets: [{
-      data: SEVERIDADES.map(s => obs.filter(o => o.severidad === s).length),
-      backgroundColor: SEVERIDADES.map(s => SEVERIDAD_COLOR[s]),
+      data: SEVERIDADES.map(s => obs.filter(o => o.severidad === s.id).length),
+      backgroundColor: SEVERIDADES.map(s => s.color),
       borderWidth: 2,
       borderColor: '#13131e',
     }]
@@ -196,32 +175,32 @@ export default function Dashboard() {
   const barAreaData = {
     labels: areas,
     datasets: SEVERIDADES.map(s => ({
-      label: SEVERIDAD_LABEL[s],
-      data: areas.map(a => obs.filter(o => o.area_responsable?.nombre === a && o.severidad === s).length),
-      backgroundColor: SEVERIDAD_COLOR[s],
+      label: s.label,
+      data: areas.map(a => obs.filter(o => o.area_responsable?.nombre === a && o.severidad === s.id).length),
+      backgroundColor: s.color,
     }))
   }
 
   const barMesData = {
     labels: MESES,
     datasets: SEVERIDADES.map(s => ({
-      label: SEVERIDAD_LABEL[s],
+      label: s.label,
       data: MESES.map((_, i) =>
         obs.filter(o => {
           const d = new Date(o.created_at)
-          return d.getFullYear() === anio && d.getMonth() === i && o.severidad === s
+          return d.getFullYear() === anio && d.getMonth() === i && o.severidad === s.id
         }).length
       ),
-      backgroundColor: SEVERIDAD_COLOR[s],
+      backgroundColor: s.color,
     }))
   }
 
   const barSubareaData = {
     labels: subareas,
     datasets: SEVERIDADES.map(s => ({
-      label: SEVERIDAD_LABEL[s],
-      data: subareas.map(sub => obs.filter(o => o.subarea?.nombre === sub && o.severidad === s).length),
-      backgroundColor: SEVERIDAD_COLOR[s],
+      label: s.label,
+      data: subareas.map(sub => obs.filter(o => o.subarea?.nombre === sub && o.severidad === s.id).length),
+      backgroundColor: s.color,
     }))
   }
 
@@ -488,14 +467,14 @@ export default function Dashboard() {
         {/* TARJETAS SEVERIDAD */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
           {SEVERIDADES.map(s => {
-            const cnt = obs.filter(o => o.severidad === s).length
+            const cnt = obs.filter(o => o.severidad === s.id).length
             const pct = total > 0 ? ((cnt / total) * 100).toFixed(1) : '0'
             return (
-              <div key={s} className="ab-sev-card" style={{
+              <div key={s.id} className="ab-sev-card" style={{
                 flex: 1,
                 background: '#13131e',
-                border: `1px solid ${SEVERIDAD_COLOR[s]}28`,
-                borderTop: `3px solid ${SEVERIDAD_COLOR[s]}`,
+                border: `1px solid ${s.color}28`,
+                borderTop: `3px solid ${s.color}`,
                 borderRadius: '4px',
                 padding: '16px 20px',
                 display: 'flex', flexDirection: 'column', gap: '10px'
@@ -503,7 +482,7 @@ export default function Dashboard() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <div style={{
                     fontSize: '34px', fontWeight: '500',
-                    color: SEVERIDAD_COLOR[s], fontFamily: MONO
+                    color: s.color, fontFamily: MONO
                   }}>
                     {cnt}
                   </div>
@@ -512,7 +491,7 @@ export default function Dashboard() {
                       fontSize: '13px', fontWeight: '600',
                       color: '#e2e2f0', fontFamily: DISPLAY
                     }}>
-                      {SEVERIDAD_LABEL[s]}
+                      {s.label}
                     </div>
                     <div style={{
                       fontSize: '11px', color: '#52526a', marginTop: '2px',
@@ -527,7 +506,7 @@ export default function Dashboard() {
                     className="ab-progress-bar"
                     style={{
                       height: '100%', borderRadius: '2px',
-                      background: SEVERIDAD_COLOR[s],
+                      background: s.color,
                       '--bar-width': `${pct}%`,
                       width: `${pct}%`
                     } as React.CSSProperties}

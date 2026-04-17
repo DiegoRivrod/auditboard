@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import { TIPOS, SEVERIDADES, inputStyle, labelStyle } from '../../constants'
 
 interface Props {
   auditoriaId: string
@@ -140,23 +141,6 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
     onClose()
   }
 
-  const inputStyle = {
-    width: '100%', padding: '9px 12px',
-    background: '#f7f9fc', border: '1px solid #e2e8f0',
-    borderRadius: '7px', fontSize: '13px',
-    fontFamily: 'system-ui, sans-serif',
-    color: '#1a2234', outline: 'none',
-    boxSizing: 'border-box' as const
-  }
-
-  const labelStyle = {
-    display: 'block' as const,
-    fontSize: '11px', fontWeight: '700' as const,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px', color: '#7a8aaa',
-    marginBottom: '5px'
-  }
-
   return (
     <div style={{
       position: 'fixed', inset: 0,
@@ -231,12 +215,9 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
               onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
               style={inputStyle}
             >
-              <option value="estructura">Estructura / Instalacion</option>
-              <option value="maquinaria">Maquinaria / Equipo</option>
-              <option value="producto">Producto / Proceso</option>
-              <option value="documentacion">Documentacion</option>
-              <option value="seguridad">Seguridad</option>
-              <option value="limpieza">Limpieza</option>
+              {TIPOS.map(t => (
+                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              ))}
             </select>
           </div>
 
@@ -244,20 +225,16 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
           <div style={{ marginBottom: '14px' }}>
             <label style={labelStyle}>Severidad *</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              {[
-                { val: 'critica', label: 'No Conformidad', bg: '#fee2e2', color: '#c0392b' },
-                { val: 'mayor', label: 'Observacion', bg: '#fef3c7', color: '#b45309' },
-                { val: 'menor', label: 'Oportunidad de Mejora', bg: '#dbeafe', color: '#1a6fb5' },
-              ].map(s => (
+              {SEVERIDADES.map(s => (
                 <div
-                  key={s.val}
-                  onClick={() => setForm(f => ({ ...f, severidad: s.val }))}
+                  key={s.id}
+                  onClick={() => setForm(f => ({ ...f, severidad: s.id }))}
                   style={{
                     flex: 1, padding: '8px', textAlign: 'center',
                     borderRadius: '7px', cursor: 'pointer', fontSize: '11px', fontWeight: '700',
-                    background: form.severidad === s.val ? s.bg : '#f7f9fc',
-                    color: form.severidad === s.val ? s.color : '#7a8aaa',
-                    border: `2px solid ${form.severidad === s.val ? s.color : '#e2e8f0'}`,
+                    background: form.severidad === s.id ? s.bg : '#f7f9fc',
+                    color: form.severidad === s.id ? s.color : '#7a8aaa',
+                    border: `2px solid ${form.severidad === s.id ? s.color : '#e2e8f0'}`,
                     transition: 'all 0.15s'
                   }}
                 >
