@@ -13,6 +13,7 @@ export type TipoObservacion =
   | 'producto'
   | 'documentacion'
   | 'seguridad'
+  | 'limpieza'
 
 export interface Area {
   id: string

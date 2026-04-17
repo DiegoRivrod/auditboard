@@ -42,7 +42,7 @@ function getColorEstado(estado: string) {
   return e?.color || '#666'
 }
 
-const TIPOS = ['estructura', 'maquinaria', 'producto', 'documentacion', 'seguridad']
+const TIPOS = ['estructura', 'maquinaria', 'producto', 'documentacion', 'seguridad', 'limpieza']
 const SEVERIDADES = [
   { id: 'critica', label: 'No Conformidad', bg: '#fee2e2', color: '#c0392b' },
   { id: 'mayor', label: 'Observacion', bg: '#fef3c7', color: '#b45309' },

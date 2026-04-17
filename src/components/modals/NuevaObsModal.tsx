@@ -236,6 +236,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
               <option value="producto">Producto / Proceso</option>
               <option value="documentacion">Documentacion</option>
               <option value="seguridad">Seguridad</option>
+              <option value="limpieza">Limpieza</option>
             </select>
           </div>
 
