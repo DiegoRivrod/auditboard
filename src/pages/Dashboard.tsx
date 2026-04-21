@@ -16,6 +16,15 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Le
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
 
+const TIPOS_CONFIG = [
+  { id: 'estructura',    label: 'Estructura',    color: '#6366f1' },
+  { id: 'maquinaria',    label: 'Maquinaria',    color: '#f59e0b' },
+  { id: 'producto',      label: 'Producto',      color: '#10b981' },
+  { id: 'documentacion', label: 'Documentación', color: '#3b82f6' },
+  { id: 'seguridad',     label: 'Seguridad',     color: '#ef4444' },
+  { id: 'limpieza',      label: 'Limpieza',      color: '#8b5cf6' },
+] as const
+
 const ESTADO_LABEL: Record<string, string> = {
   sin_fecha: 'Sin Fecha',
   fecha_comprometida: 'Fecha Comprometida',
@@ -25,7 +34,8 @@ const ESTADO_LABEL: Record<string, string> = {
 }
 
 // Proyección local — Dashboard solo necesita estos campos del join de Supabase
-type ObsDashboard = Pick<Observacion, 'severidad' | 'estado' | 'created_at'> & {
+type ObsDashboard = Pick<Observacion, 'severidad' | 'estado' | 'created_at' | 'tipo'> & {
+  fecha_cierre_real?: string | null
   area_responsable: { nombre: string; codigo: string } | null
   subarea: { nombre: string } | null
 }
@@ -140,7 +150,7 @@ export default function Dashboard() {
     const fetchData = async () => {
       const { data, error } = await supabase
         .from('observaciones')
-        .select('severidad, estado, created_at, area_responsable:areas!area_responsable_id(nombre, codigo), subarea:subareas(nombre)')
+        .select('severidad, estado, created_at, tipo, fecha_cierre_real, area_responsable:areas!area_responsable_id(nombre, codigo), subarea:subareas(nombre)')
 
       if (error) {
         console.log('ERROR:', error)
@@ -202,6 +212,33 @@ export default function Dashboard() {
       label: s.label,
       data: subareas.map(sub => obs.filter(o => o.subarea?.nombre === sub && o.severidad === s.id).length),
       backgroundColor: s.color,
+    }))
+  }
+
+  const barLevantamientoData = {
+    labels: MESES,
+    datasets: [{
+      label: 'Levantadas',
+      data: MESES.map((_, i) =>
+        obs.filter(o => {
+          if (o.estado !== 'levantada' || !o.fecha_cierre_real) return false
+          const d = new Date(o.fecha_cierre_real)
+          return d.getFullYear() === anio && d.getMonth() === i
+        }).length
+      ),
+      backgroundColor: '#22c55e',
+      borderRadius: 2,
+    }]
+  }
+
+  const barTiposAreaData = {
+    labels: areas,
+    datasets: TIPOS_CONFIG.map(t => ({
+      label: t.label,
+      data: areas.map(a =>
+        obs.filter(o => o.area_responsable?.nombre === a && o.tipo === t.id).length
+      ),
+      backgroundColor: t.color,
     }))
   }
 
@@ -269,6 +306,25 @@ export default function Dashboard() {
     }
   }
 
+  const opcionesLevantamiento = {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => {
+            const val = ctx.parsed.y ?? 0
+            return `  ${val} observaciones levantadas`
+          }
+        }
+      }
+    },
+    scales: {
+      x: { ticks: { color: '#52526a', font: monoFont }, grid: { color: '#1e1e2e' } },
+      y: { ticks: { color: '#52526a', font: monoFont }, grid: { color: '#1e1e2e' }, beginAtZero: true },
+    }
+  }
+
   if (loading) return (
     <div style={{
       minHeight: '100vh',
@@ -327,6 +383,8 @@ export default function Dashboard() {
         .ab-chart-1     { animation-delay: 270ms; }
         .ab-chart-2     { animation-delay: 360ms; }
         .ab-chart-3     { animation-delay: 450ms; }
+        .ab-chart-4     { animation-delay: 540ms; }
+        .ab-chart-5     { animation-delay: 630ms; }
 
         .ab-progress-bar {
           animation: progressFill 0.65s ease-out both;
@@ -570,6 +628,40 @@ export default function Dashboard() {
             Observaciones por Mes — {anio}
           </h2>
           <Bar data={barMesData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+        </div>
+
+        {/* GRÁFICO AVANCE DE LEVANTAMIENTO MENSUAL */}
+        <div className="ab-chart-panel ab-chart-4" style={{
+          background: '#13131e', border: '1px solid #1e1e2e',
+          borderRadius: '4px', padding: '20px', marginBottom: '16px'
+        }}>
+          <h2 style={{
+            margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
+            color: '#e2e2f0', fontFamily: DISPLAY,
+            letterSpacing: '1px', textTransform: 'uppercase',
+            display: 'flex', alignItems: 'center', gap: '8px'
+          }}>
+            <span style={{ color: '#22c55e', fontWeight: '400', fontSize: '14px' }}>▎</span>
+            Avance de Levantamiento Mensual — {anio}
+          </h2>
+          <Bar data={barLevantamientoData} options={opcionesLevantamiento} />
+        </div>
+
+        {/* GRÁFICO TIPOS DE OBSERVACIÓN POR ÁREA */}
+        <div className="ab-chart-panel ab-chart-5" style={{
+          background: '#13131e', border: '1px solid #1e1e2e',
+          borderRadius: '4px', padding: '20px', marginBottom: '16px'
+        }}>
+          <h2 style={{
+            margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
+            color: '#e2e2f0', fontFamily: DISPLAY,
+            letterSpacing: '1px', textTransform: 'uppercase',
+            display: 'flex', alignItems: 'center', gap: '8px'
+          }}>
+            <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
+            Tipos de Observación por Área
+          </h2>
+          <Bar data={barTiposAreaData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
         </div>
 
         {/* GRÁFICO POR SUBÁREA (horizontal) */}
