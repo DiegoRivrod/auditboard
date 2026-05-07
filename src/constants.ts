@@ -4,6 +4,7 @@ export const COLORES_AREA: Record<string, string> = {
   PRODUCCION: '#1a6fb5',
   'LOGISTICA Y ALMACEN': '#d97706',
   MANTENIMIENTO: '#16a34a',
+  'ANALISIS DE MEJORA': '#7c3aed',
 }
 
 // Tipos de observacion — usado en DetailPanel y NuevaObsModal

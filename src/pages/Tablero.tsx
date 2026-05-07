@@ -30,6 +30,7 @@ export default function Tablero() {
   }, [])
 
   const esCalidad = usuario?.area?.codigo === 'CALIDAD'
+  const IS_DEMO   = import.meta.env.VITE_DEMO_MODE === 'true'
 
   async function cargarDatos() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -159,7 +160,7 @@ export default function Tablero() {
           >
             📊 Dashboard
           </button>
-          {esCalidad && (
+          {esCalidad && !IS_DEMO && (
             <button
               onClick={() => setMostrarModal(true)}
               style={{
@@ -351,7 +352,7 @@ export default function Tablero() {
                           </div>
                         </div>
                       )}
-                      {esCalidad && (
+                      {esCalidad && !IS_DEMO && (
                         <button
                           onClick={e => {
                             e.stopPropagation()

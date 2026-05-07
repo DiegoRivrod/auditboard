@@ -2,9 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
+const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true'
+const DEMO_EMAIL    = 'demo@auditboard.app'
+const DEMO_PASSWORD = 'demo2026'
+
 export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail] = useState(IS_DEMO ? DEMO_EMAIL : '')
+  const [password, setPassword] = useState(IS_DEMO ? DEMO_PASSWORD : '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -143,9 +147,25 @@ export default function Login() {
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', fontSize: '11px', color: '#b0bdd4', marginTop: '20px' }}>
-          Sistema interno - Solo personal autorizado
-        </p>
+        {IS_DEMO ? (
+          <div style={{ marginTop: '16px' }}>
+            <div style={{
+              background: '#eff6ff', border: '1px solid #bfdbfe',
+              borderRadius: '8px', padding: '12px 14px', marginBottom: '12px',
+            }}>
+              <p style={{ margin: '0 0 4px', fontSize: '11px', fontWeight: '700', color: '#1a6fb5', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                Modo Demo
+              </p>
+              <p style={{ margin: 0, fontSize: '12px', color: '#3b82f6' }}>
+                Credenciales pre-llenadas. Haz clic en <strong>Ingresar</strong> para explorar con datos ficticios.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p style={{ textAlign: 'center', fontSize: '11px', color: '#b0bdd4', marginTop: '20px' }}>
+            Sistema interno - Solo personal autorizado
+          </p>
+        )}
       </div>
     </div>
   )
