@@ -110,6 +110,51 @@ function crearPluginTotalesHorizontal(totalGeneral: number) {
   }
 }
 
+// Plugin: etiquetas dentro de cada segmento apilado + total encima de la barra
+function crearPluginSegmentosConPorcentaje(totalesPorMes: number[]) {
+  return {
+    id: 'etiquetasSegmentos',
+    afterDraw(chart: any) {
+      const ctx = chart.ctx
+      chart.data.datasets.forEach((_: any, dsIdx: number) => {
+        const meta = chart.getDatasetMeta(dsIdx)
+        if (meta.hidden) return
+        meta.data.forEach((barra: any, i: number) => {
+          const value = (chart.data.datasets[dsIdx].data[i] as number) || 0
+          if (value === 0) return
+          const total = totalesPorMes[i]
+          const pct = total > 0 ? Math.round((value / total) * 100) : 0
+          if (pct < 8) return
+          const { x, y, base } = barra.getProps(['x', 'y', 'base'])
+          const segmentHeight = base - y
+          if (segmentHeight < 22) return
+          ctx.save()
+          ctx.fillStyle = '#fff'
+          ctx.font = '600 10px "DM Mono", monospace'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${value} (${pct}%)`, x, y + segmentHeight / 2)
+          ctx.restore()
+        })
+      })
+      // Total encima de cada barra
+      const lastDs = chart.data.datasets.length - 1
+      chart.getDatasetMeta(lastDs).data.forEach((barra: any, i: number) => {
+        const total = totalesPorMes[i]
+        if (!total) return
+        const { x, y } = barra.getProps(['x', 'y'])
+        ctx.save()
+        ctx.fillStyle = '#e2e2f0'
+        ctx.font = '700 11px "DM Mono", monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'bottom'
+        ctx.fillText(String(total), x, y - 4)
+        ctx.restore()
+      })
+    }
+  }
+}
+
 // Plugin: etiquetas dentro/encima de cada slice del Pie
 const pluginEtiquetasPie = {
   id: 'etiquetasPie',
@@ -229,6 +274,31 @@ export default function Dashboard() {
       backgroundColor: '#22c55e',
       borderRadius: 2,
     }]
+  }
+
+  const levantadasConFecha = obs.filter(o => o.estado === 'levantada' && o.fecha_cierre_real)
+  const totalesLevMes = MESES.map((_, i) =>
+    levantadasConFecha.filter(o => {
+      const d = new Date(o.fecha_cierre_real!)
+      return d.getFullYear() === anio && d.getMonth() === i
+    }).length
+  )
+  const barLevAreaData = {
+    labels: MESES,
+    datasets: areas.map(area => {
+      const codigo = obs.find(o => o.area_responsable?.nombre === area)?.area_responsable?.codigo ?? ''
+      return {
+        label: area,
+        data: MESES.map((_, i) =>
+          levantadasConFecha.filter(o => {
+            const d = new Date(o.fecha_cierre_real!)
+            return o.area_responsable?.nombre === area && d.getFullYear() === anio && d.getMonth() === i
+          }).length
+        ),
+        backgroundColor: COLORES_AREA[codigo] || '#6b7280',
+        borderRadius: 3,
+      }
+    })
   }
 
   const barTiposAreaData = {
@@ -645,6 +715,33 @@ export default function Dashboard() {
             Avance de Levantamiento Mensual — {anio}
           </h2>
           <Bar data={barLevantamientoData} options={opcionesLevantamiento} />
+        </div>
+
+        {/* GRÁFICO LEVANTAMIENTOS POR ÁREA — TENDENCIA MENSUAL */}
+        <div className="ab-chart-panel ab-chart-4b" style={{
+          background: '#13131e', border: '1px solid #1e1e2e',
+          borderRadius: '4px', padding: '20px', marginBottom: '16px'
+        }}>
+          <h2 style={{
+            margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
+            color: '#e2e2f0', fontFamily: DISPLAY,
+            letterSpacing: '1px', textTransform: 'uppercase',
+            display: 'flex', alignItems: 'center', gap: '8px'
+          }}>
+            <span style={{ color: '#22c55e', fontWeight: '400', fontSize: '14px' }}>▎</span>
+            Levantamientos por Área — Tendencia Mensual {anio}
+          </h2>
+          <Bar
+            data={barLevAreaData}
+            options={{
+              ...opcionesBar,
+              scales: {
+                x: { ...(opcionesBar as any).scales?.x, stacked: true },
+                y: { ...(opcionesBar as any).scales?.y, stacked: true },
+              }
+            }}
+            plugins={[crearPluginSegmentosConPorcentaje(totalesLevMes)]}
+          />
         </div>
 
         {/* GRÁFICO TIPOS DE OBSERVACIÓN POR ÁREA */}
