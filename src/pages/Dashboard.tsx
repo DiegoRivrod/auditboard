@@ -318,6 +318,7 @@ export default function Dashboard() {
 
   const opcionesBar = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { labels: { color: '#e2e2f0', font: monoFont } },
       tooltip: {
@@ -338,6 +339,7 @@ export default function Dashboard() {
 
   const opcionesBarHorizontal = {
     responsive: true,
+    maintainAspectRatio: false,
     indexAxis: 'y' as const,
     plugins: {
       legend: { labels: { color: '#e2e2f0', font: monoFont } },
@@ -359,6 +361,7 @@ export default function Dashboard() {
 
   const opcionesPie = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: 'bottom' as const,
@@ -378,6 +381,7 @@ export default function Dashboard() {
 
   const opcionesLevantamiento = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -661,7 +665,7 @@ export default function Dashboard() {
               <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
               Distribución por Tipo
             </h2>
-            <div style={{ maxWidth: '300px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '300px', margin: '0 auto', height: '280px' }}>
               <Pie data={pieData} options={opcionesPie} plugins={[pluginEtiquetasPie]} />
             </div>
           </div>
@@ -679,86 +683,98 @@ export default function Dashboard() {
               <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
               Por Área y Tipo
             </h2>
-            <Bar data={barAreaData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+            <div style={{ height: '280px' }}>
+              <Bar data={barAreaData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+            </div>
           </div>
         </div>
 
-        {/* GRÁFICO POR MES */}
-        <div className="ab-chart-panel ab-chart-2" style={{
-          background: '#13131e', border: '1px solid #1e1e2e',
-          borderRadius: '4px', padding: '20px', marginBottom: '16px'
-        }}>
-          <h2 style={{
-            margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
-            color: '#e2e2f0', fontFamily: DISPLAY,
-            letterSpacing: '1px', textTransform: 'uppercase',
-            display: 'flex', alignItems: 'center', gap: '8px'
+        {/* GRÁFICOS FILA 2: Por Mes + Avance Levantamiento */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div className="ab-chart-panel ab-chart-2" style={{
+            background: '#13131e', border: '1px solid #1e1e2e',
+            borderRadius: '4px', padding: '20px'
           }}>
-            <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
-            Observaciones por Mes — {anio}
-          </h2>
-          <Bar data={barMesData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+            <h2 style={{
+              margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
+              color: '#e2e2f0', fontFamily: DISPLAY,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: '8px'
+            }}>
+              <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
+              Observaciones por Mes — {anio}
+            </h2>
+            <div style={{ height: '280px' }}>
+              <Bar data={barMesData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+            </div>
+          </div>
+
+          <div className="ab-chart-panel ab-chart-4" style={{
+            background: '#13131e', border: '1px solid #1e1e2e',
+            borderRadius: '4px', padding: '20px'
+          }}>
+            <h2 style={{
+              margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
+              color: '#e2e2f0', fontFamily: DISPLAY,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: '8px'
+            }}>
+              <span style={{ color: '#22c55e', fontWeight: '400', fontSize: '14px' }}>▎</span>
+              Avance de Levantamiento Mensual — {anio}
+            </h2>
+            <div style={{ height: '280px' }}>
+              <Bar data={barLevantamientoData} options={opcionesLevantamiento} />
+            </div>
+          </div>
         </div>
 
-        {/* GRÁFICO AVANCE DE LEVANTAMIENTO MENSUAL */}
-        <div className="ab-chart-panel ab-chart-4" style={{
-          background: '#13131e', border: '1px solid #1e1e2e',
-          borderRadius: '4px', padding: '20px', marginBottom: '16px'
-        }}>
-          <h2 style={{
-            margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
-            color: '#e2e2f0', fontFamily: DISPLAY,
-            letterSpacing: '1px', textTransform: 'uppercase',
-            display: 'flex', alignItems: 'center', gap: '8px'
+        {/* GRÁFICOS FILA 3: Levantamientos por Área + Tipos por Área */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+          <div className="ab-chart-panel ab-chart-4b" style={{
+            background: '#13131e', border: '1px solid #1e1e2e',
+            borderRadius: '4px', padding: '20px'
           }}>
-            <span style={{ color: '#22c55e', fontWeight: '400', fontSize: '14px' }}>▎</span>
-            Avance de Levantamiento Mensual — {anio}
-          </h2>
-          <Bar data={barLevantamientoData} options={opcionesLevantamiento} />
-        </div>
+            <h2 style={{
+              margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
+              color: '#e2e2f0', fontFamily: DISPLAY,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: '8px'
+            }}>
+              <span style={{ color: '#22c55e', fontWeight: '400', fontSize: '14px' }}>▎</span>
+              Levantamientos por Área — Tendencia Mensual {anio}
+            </h2>
+            <div style={{ height: '280px' }}>
+              <Bar
+                data={barLevAreaData}
+                options={{
+                  ...opcionesBar,
+                  scales: {
+                    x: { ...(opcionesBar as any).scales?.x, stacked: true },
+                    y: { ...(opcionesBar as any).scales?.y, stacked: true },
+                  }
+                }}
+                plugins={[crearPluginSegmentosConPorcentaje(totalesLevMes)]}
+              />
+            </div>
+          </div>
 
-        {/* GRÁFICO LEVANTAMIENTOS POR ÁREA — TENDENCIA MENSUAL */}
-        <div className="ab-chart-panel ab-chart-4b" style={{
-          background: '#13131e', border: '1px solid #1e1e2e',
-          borderRadius: '4px', padding: '20px', marginBottom: '16px'
-        }}>
-          <h2 style={{
-            margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
-            color: '#e2e2f0', fontFamily: DISPLAY,
-            letterSpacing: '1px', textTransform: 'uppercase',
-            display: 'flex', alignItems: 'center', gap: '8px'
+          <div className="ab-chart-panel ab-chart-5" style={{
+            background: '#13131e', border: '1px solid #1e1e2e',
+            borderRadius: '4px', padding: '20px'
           }}>
-            <span style={{ color: '#22c55e', fontWeight: '400', fontSize: '14px' }}>▎</span>
-            Levantamientos por Área — Tendencia Mensual {anio}
-          </h2>
-          <Bar
-            data={barLevAreaData}
-            options={{
-              ...opcionesBar,
-              scales: {
-                x: { ...(opcionesBar as any).scales?.x, stacked: true },
-                y: { ...(opcionesBar as any).scales?.y, stacked: true },
-              }
-            }}
-            plugins={[crearPluginSegmentosConPorcentaje(totalesLevMes)]}
-          />
-        </div>
-
-        {/* GRÁFICO TIPOS DE OBSERVACIÓN POR ÁREA */}
-        <div className="ab-chart-panel ab-chart-5" style={{
-          background: '#13131e', border: '1px solid #1e1e2e',
-          borderRadius: '4px', padding: '20px', marginBottom: '16px'
-        }}>
-          <h2 style={{
-            margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
-            color: '#e2e2f0', fontFamily: DISPLAY,
-            letterSpacing: '1px', textTransform: 'uppercase',
-            display: 'flex', alignItems: 'center', gap: '8px'
-          }}>
-            <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
-            Tipos de Observación por Área
-          </h2>
-          <Bar data={barTiposAreaData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+            <h2 style={{
+              margin: '0 0 16px', fontSize: '11px', fontWeight: '800',
+              color: '#e2e2f0', fontFamily: DISPLAY,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: '8px'
+            }}>
+              <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
+              Tipos de Observación por Área
+            </h2>
+            <div style={{ height: '280px' }}>
+              <Bar data={barTiposAreaData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+            </div>
+          </div>
         </div>
 
         {/* GRÁFICO POR SUBÁREA (horizontal) */}
@@ -776,11 +792,13 @@ export default function Dashboard() {
               <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
               Por Subárea y Tipo
             </h2>
-            <Bar
-              data={barSubareaData}
-              options={opcionesBarHorizontal}
-              plugins={[crearPluginTotalesHorizontal(total)]}
-            />
+            <div style={{ height: '320px' }}>
+              <Bar
+                data={barSubareaData}
+                options={opcionesBarHorizontal}
+                plugins={[crearPluginTotalesHorizontal(total)]}
+              />
+            </div>
           </div>
         )}
 
