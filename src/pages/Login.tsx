@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { IS_DEMO } from '../lib/env'
 
-const IS_DEMO = import.meta.env.VITE_DEMO_MODE === 'true'
 const DEMO_EMAIL    = 'demo@auditboard.app'
 const DEMO_PASSWORD = 'demo2026'
 
@@ -24,7 +24,7 @@ export default function Login() {
     })
 
     if (error) {
-      setError('Email o contrasena incorrectos')
+      setError('Email o contraseña incorrectos')
     } else {
       navigate('/tablero')
     }
@@ -66,7 +66,7 @@ export default function Login() {
             </span>
           </div>
           <p style={{ fontSize: '13px', color: '#7a8aaa', marginLeft: '46px' }}>
-            Gestion de observaciones de auditoria
+            Gestión de observaciones de auditoría
           </p>
         </div>
 
@@ -95,7 +95,7 @@ export default function Login() {
 
           <div>
             <label style={{ fontSize: '11px', fontWeight: '700', color: '#7a8aaa', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Contrasena
+              Contraseña
             </label>
             <input
               type="password"
@@ -163,7 +163,7 @@ export default function Login() {
           </div>
         ) : (
           <p style={{ textAlign: 'center', fontSize: '11px', color: '#b0bdd4', marginTop: '20px' }}>
-            Sistema interno - Solo personal autorizado
+            Sistema interno — Solo personal autorizado
           </p>
         )}
       </div>

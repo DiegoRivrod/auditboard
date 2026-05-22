@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
 /**
  * Mock Supabase client para modo demo.
  * Devuelve datos estáticos de demoData.ts — sin ninguna llamada de red.
  * Usado cuando VITE_DEMO_MODE=true.
+ *
+ * Las firmas tienen `any` y parámetros con `_` (ignorados) porque emulan la API
+ * pública de @supabase/supabase-js sin importar sus tipos completos.
  */
 import {
   DEMO_AREAS, DEMO_SUBAREAS, DEMO_PERFIL, DEMO_AUDITORIA,
@@ -119,6 +123,14 @@ export const demoSupabase = {
   },
 
   from: (table: string) => new QueryBuilder(table),
+
+  rpc: (name: string, _params?: any) => {
+    if (name === 'generar_codigo_observacion') {
+      const n = Math.floor(Math.random() * 900) + 100
+      return ok(`OBS-${new Date().getFullYear()}-${n}`)
+    }
+    return ok(null)
+  },
 
   functions: {
     invoke: (_name: string, _opts?: any) => ok({ data: null }),

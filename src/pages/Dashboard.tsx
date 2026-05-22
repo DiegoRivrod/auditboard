@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Los plugins de Chart.js manipulan estructuras internas (`chart.ctx`, `meta.data[i].x/y/base`)
+// que no están expuestas en los tipos públicos. Mantenemos `any` localmente.
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { ToastContainer, toast } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
+import { toast } from 'react-toastify'
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, BarElement,
@@ -190,15 +192,35 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [obs, setObs] = useState<ObsDashboard[]>([])
   const [loading, setLoading] = useState(true)
+  const [sinAuditoria, setSinAuditoria] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        navigate('/login')
+        return
+      }
+
+      const { data: auditoria } = await supabase
+        .from('auditorias')
+        .select('id')
+        .eq('activa', true)
+        .single()
+
+      if (!auditoria) {
+        setSinAuditoria(true)
+        setLoading(false)
+        return
+      }
+
       const { data, error } = await supabase
         .from('observaciones')
         .select('severidad, estado, created_at, tipo, fecha_cierre_real, area_responsable:areas!area_responsable_id(nombre, codigo), subarea:subareas(nombre)')
+        .eq('auditoria_id', auditoria.id)
 
       if (error) {
-        console.log('ERROR:', error)
+        console.error('Dashboard fetch observaciones:', error)
         toast.error('Error al cargar los datos')
       } else if (data) {
         setObs(data as unknown as ObsDashboard[])
@@ -207,37 +229,50 @@ export default function Dashboard() {
       setLoading(false)
     }
     fetchData()
-  }, [])
+  }, [navigate])
 
   const anio = new Date().getFullYear()
   const total = obs.length
   const estados = Object.keys(ESTADO_LABEL)
 
-  const areas = [...new Set(obs.map(o => o.area_responsable?.nombre).filter(Boolean))] as string[]
-  const subareas = [...new Set(obs.map(o => o.subarea?.nombre).filter(Boolean))] as string[]
+  const areas = useMemo(
+    () => [...new Set(obs.map(o => o.area_responsable?.nombre).filter(Boolean))] as string[],
+    [obs],
+  )
 
-  // --- Datos para gráficos ---
+  // Tuplas (área, subárea) — evita colapso de subáreas homónimas entre áreas
+  const subareaKeys = useMemo(() => {
+    const map = new Map<string, { area: string; sub: string }>()
+    obs.forEach(o => {
+      const a = o.area_responsable?.nombre
+      const s = o.subarea?.nombre
+      if (a && s) map.set(`${a}/${s}`, { area: a, sub: s })
+    })
+    return [...map.values()]
+  }, [obs])
 
-  const pieData = {
+  // --- Datos para gráficos (memoizados) ---
+
+  const pieData = useMemo(() => ({
     labels: SEVERIDADES.map(s => s.label),
     datasets: [{
       data: SEVERIDADES.map(s => obs.filter(o => o.severidad === s.id).length),
       backgroundColor: SEVERIDADES.map(s => s.color),
       borderWidth: 2,
       borderColor: '#13131e',
-    }]
-  }
+    }],
+  }), [obs])
 
-  const barAreaData = {
+  const barAreaData = useMemo(() => ({
     labels: areas,
     datasets: SEVERIDADES.map(s => ({
       label: s.label,
       data: areas.map(a => obs.filter(o => o.area_responsable?.nombre === a && o.severidad === s.id).length),
       backgroundColor: s.color,
-    }))
-  }
+    })),
+  }), [obs, areas])
 
-  const barMesData = {
+  const barMesData = useMemo(() => ({
     labels: MESES,
     datasets: SEVERIDADES.map(s => ({
       label: s.label,
@@ -245,22 +280,26 @@ export default function Dashboard() {
         obs.filter(o => {
           const d = new Date(o.created_at)
           return d.getFullYear() === anio && d.getMonth() === i && o.severidad === s.id
-        }).length
+        }).length,
       ),
       backgroundColor: s.color,
-    }))
-  }
+    })),
+  }), [obs, anio])
 
-  const barSubareaData = {
-    labels: subareas,
+  const barSubareaData = useMemo(() => ({
+    labels: subareaKeys.map(k => `${k.area} / ${k.sub}`),
     datasets: SEVERIDADES.map(s => ({
       label: s.label,
-      data: subareas.map(sub => obs.filter(o => o.subarea?.nombre === sub && o.severidad === s.id).length),
+      data: subareaKeys.map(k => obs.filter(o =>
+        o.area_responsable?.nombre === k.area
+        && o.subarea?.nombre === k.sub
+        && o.severidad === s.id,
+      ).length),
       backgroundColor: s.color,
-    }))
-  }
+    })),
+  }), [obs, subareaKeys])
 
-  const barLevantamientoData = {
+  const barLevantamientoData = useMemo(() => ({
     labels: MESES,
     datasets: [{
       label: 'Levantadas',
@@ -269,21 +308,27 @@ export default function Dashboard() {
           if (o.estado !== 'levantada' || !o.fecha_cierre_real) return false
           const d = new Date(o.fecha_cierre_real)
           return d.getFullYear() === anio && d.getMonth() === i
-        }).length
+        }).length,
       ),
       backgroundColor: '#22c55e',
       borderRadius: 2,
-    }]
-  }
+    }],
+  }), [obs, anio])
 
-  const levantadasConFecha = obs.filter(o => o.estado === 'levantada' && o.fecha_cierre_real)
-  const totalesLevMes = MESES.map((_, i) =>
-    levantadasConFecha.filter(o => {
-      const d = new Date(o.fecha_cierre_real!)
-      return d.getFullYear() === anio && d.getMonth() === i
-    }).length
+  const levantadasConFecha = useMemo(
+    () => obs.filter(o => o.estado === 'levantada' && o.fecha_cierre_real),
+    [obs],
   )
-  const barLevAreaData = {
+  const totalesLevMes = useMemo(
+    () => MESES.map((_, i) =>
+      levantadasConFecha.filter(o => {
+        const d = new Date(o.fecha_cierre_real!)
+        return d.getFullYear() === anio && d.getMonth() === i
+      }).length,
+    ),
+    [levantadasConFecha, anio],
+  )
+  const barLevAreaData = useMemo(() => ({
     labels: MESES,
     datasets: areas.map(area => {
       const codigo = obs.find(o => o.area_responsable?.nombre === area)?.area_responsable?.codigo ?? ''
@@ -293,24 +338,28 @@ export default function Dashboard() {
           levantadasConFecha.filter(o => {
             const d = new Date(o.fecha_cierre_real!)
             return o.area_responsable?.nombre === area && d.getFullYear() === anio && d.getMonth() === i
-          }).length
+          }).length,
         ),
         backgroundColor: COLORES_AREA[codigo] || '#6b7280',
         borderRadius: 3,
       }
-    })
-  }
+    }),
+  }), [obs, areas, levantadasConFecha, anio])
 
-  const barTiposAreaData = {
+  const barTiposAreaData = useMemo(() => ({
     labels: areas,
     datasets: TIPOS_CONFIG.map(t => ({
       label: t.label,
       data: areas.map(a =>
-        obs.filter(o => o.area_responsable?.nombre === a && o.tipo === t.id).length
+        obs.filter(o => o.area_responsable?.nombre === a && o.tipo === t.id).length,
       ),
       backgroundColor: t.color,
-    }))
-  }
+    })),
+  }), [obs, areas])
+
+  const pluginTotalesApilados = useMemo(() => crearPluginTotalesApilados(total), [total])
+  const pluginTotalesHorizontal = useMemo(() => crearPluginTotalesHorizontal(total), [total])
+  const pluginSegmentosLev = useMemo(() => crearPluginSegmentosConPorcentaje(totalesLevMes), [totalesLevMes])
 
   // --- Opciones de gráficos ---
 
@@ -426,6 +475,35 @@ export default function Dashboard() {
     </div>
   )
 
+  if (sinAuditoria) return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#09090f',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexDirection: 'column', gap: '16px',
+      fontFamily: DISPLAY, color: '#e2e2f0',
+    }}>
+      <div style={{
+        fontFamily: MONO, fontSize: '11px',
+        color: '#e8a020', letterSpacing: '2.5px',
+      }}>
+        SIN AUDITORÍA ACTIVA
+      </div>
+      <button
+        onClick={() => navigate('/tablero')}
+        style={{
+          background: 'transparent',
+          border: '1px solid rgba(255,255,255,0.2)',
+          color: '#52526a', borderRadius: '3px',
+          padding: '6px 14px', fontSize: '11px',
+          cursor: 'pointer', fontFamily: MONO, letterSpacing: '0.8px',
+        }}
+      >
+        ← TABLERO
+      </button>
+    </div>
+  )
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -479,7 +557,6 @@ export default function Dashboard() {
         }
       `}</style>
 
-      <ToastContainer position="top-right" theme="dark" />
 
       {/* HEADER */}
       <div style={{
@@ -663,7 +740,7 @@ export default function Dashboard() {
               display: 'flex', alignItems: 'center', gap: '8px'
             }}>
               <span style={{ color: '#e8a020', fontWeight: '400', fontSize: '14px' }}>▎</span>
-              Distribución por Tipo
+              Distribución por Severidad
             </h2>
             <div style={{ maxWidth: '300px', margin: '0 auto', height: '280px' }}>
               <Pie data={pieData} options={opcionesPie} plugins={[pluginEtiquetasPie]} />
@@ -684,7 +761,7 @@ export default function Dashboard() {
               Por Área y Tipo
             </h2>
             <div style={{ height: '280px' }}>
-              <Bar data={barAreaData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+              <Bar data={barAreaData} options={opcionesBar} plugins={[pluginTotalesApilados]} />
             </div>
           </div>
         </div>
@@ -705,7 +782,7 @@ export default function Dashboard() {
               Observaciones por Mes — {anio}
             </h2>
             <div style={{ height: '280px' }}>
-              <Bar data={barMesData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+              <Bar data={barMesData} options={opcionesBar} plugins={[pluginTotalesApilados]} />
             </div>
           </div>
 
@@ -753,7 +830,7 @@ export default function Dashboard() {
                     y: { ...(opcionesBar as any).scales?.y, stacked: true },
                   }
                 }}
-                plugins={[crearPluginSegmentosConPorcentaje(totalesLevMes)]}
+                plugins={[pluginSegmentosLev]}
               />
             </div>
           </div>
@@ -772,13 +849,13 @@ export default function Dashboard() {
               Tipos de Observación por Área
             </h2>
             <div style={{ height: '280px' }}>
-              <Bar data={barTiposAreaData} options={opcionesBar} plugins={[crearPluginTotalesApilados(total)]} />
+              <Bar data={barTiposAreaData} options={opcionesBar} plugins={[pluginTotalesApilados]} />
             </div>
           </div>
         </div>
 
         {/* GRÁFICO POR SUBÁREA (horizontal) */}
-        {subareas.length > 0 && (
+        {subareaKeys.length > 0 && (
           <div className="ab-chart-panel ab-chart-3" style={{
             background: '#13131e', border: '1px solid #1e1e2e',
             borderRadius: '4px', padding: '20px', marginBottom: '16px'
@@ -796,7 +873,7 @@ export default function Dashboard() {
               <Bar
                 data={barSubareaData}
                 options={opcionesBarHorizontal}
-                plugins={[crearPluginTotalesHorizontal(total)]}
+                plugins={[pluginTotalesHorizontal]}
               />
             </div>
           </div>
@@ -829,7 +906,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {areas.map(area => {
               const obsArea = obs.filter(o => o.area_responsable?.nombre === area)
-              const levArea = obsArea.filter(o => o.estado === 'levantada').length
+              const levArea = obsArea.filter(o => o.estado === 'levantada' && o.fecha_cierre_real).length
               const pctArea = obsArea.length > 0 ? (levArea / obsArea.length * 100) : 0
               const areaCodigo = obsArea[0]?.area_responsable?.codigo || ''
               const colorArea = COLORES_AREA[areaCodigo] || '#64748b'
@@ -902,7 +979,7 @@ export default function Dashboard() {
                     }}>
                       {subareasDeArea.map(sub => {
                         const obsSub = obsArea.filter(o => o.subarea?.nombre === sub)
-                        const levSub = obsSub.filter(o => o.estado === 'levantada').length
+                        const levSub = obsSub.filter(o => o.estado === 'levantada' && o.fecha_cierre_real).length
                         const pctSub = obsSub.length > 0 ? (levSub / obsSub.length * 100) : 0
 
                         return (
@@ -954,7 +1031,7 @@ export default function Dashboard() {
                       {(() => {
                         const obsSinSub = obsArea.filter(o => !o.subarea?.nombre)
                         if (obsSinSub.length === 0) return null
-                        const levSinSub = obsSinSub.filter(o => o.estado === 'levantada').length
+                        const levSinSub = obsSinSub.filter(o => o.estado === 'levantada' && o.fecha_cierre_real).length
                         const pctSinSub = obsSinSub.length > 0 ? (levSinSub / obsSinSub.length * 100) : 0
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

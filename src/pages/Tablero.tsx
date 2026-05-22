@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
 import { supabase } from '../lib/supabase'
+import { IS_DEMO } from '../lib/env'
 import NuevaObsModal from '../components/modals/NuevaObsModal'
 import DetailPanel from '../components/detail/DetailPanel'
 import { COLORES_AREA, SEVERIDADES } from '../constants'
@@ -9,8 +11,8 @@ import type { Observacion, Perfil } from '../types'
 const COLUMNAS = [
   { id: 'sin_fecha', titulo: 'Sin Fecha', color: '#ef4444', bg: '#fef2f2', border: '#fecaca' },
   { id: 'fecha_comprometida', titulo: 'Fecha Comprometida', color: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
-  { id: 'en_ejecucion', titulo: 'En Ejecucion', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
-  { id: 'en_verificacion', titulo: 'En Verificacion', color: '#8b5cf6', bg: '#faf5ff', border: '#ddd6fe' },
+  { id: 'en_ejecucion', titulo: 'En Ejecución', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
+  { id: 'en_verificacion', titulo: 'En Verificación', color: '#8b5cf6', bg: '#faf5ff', border: '#ddd6fe' },
   { id: 'levantada', titulo: 'Levantada', color: '#22c55e', bg: '#f0fdf4', border: '#bbf7d0' },
 ]
 
@@ -25,44 +27,47 @@ export default function Tablero() {
   const [filtroTexto, setFiltroTexto] = useState('')
   const [filtroArea, setFiltroArea] = useState('')
 
-  useEffect(() => {
-    cargarDatos()
-  }, [])
-
   const esCalidad = usuario?.area?.codigo === 'CALIDAD'
-  const IS_DEMO   = import.meta.env.VITE_DEMO_MODE === 'true'
 
-  async function cargarDatos() {
+  const cargarDatos = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       navigate('/login')
       return
     }
 
-    const { data: perfil } = await supabase
+    const { data: perfil, error: errPerfil } = await supabase
       .from('perfiles')
       .select('*, area:areas(*)')
       .eq('id', user.id)
       .single()
-
+    if (errPerfil) console.error('Tablero fetch perfil:', errPerfil)
     setUsuario(perfil)
 
-    const { data: auditoria } = await supabase
+    const { data: auditoria, error: errAudit } = await supabase
       .from('auditorias')
       .select('id')
       .eq('activa', true)
       .single()
-
+    if (errAudit) console.error('Tablero fetch auditoría:', errAudit)
     if (auditoria) setAuditoriaId(auditoria.id)
 
-    const { data: obs } = await supabase
+    const { data: obs, error: errObs } = await supabase
       .from('observaciones')
       .select('*, area_responsable:areas(*), subarea:subareas(*)')
       .order('created_at', { ascending: false })
-
+    if (errObs) {
+      console.error('Tablero fetch observaciones:', errObs)
+      toast.error('Error al cargar observaciones')
+    }
     setObservaciones(obs || [])
     setLoading(false)
-  }
+  }, [navigate])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarDatos()
+  }, [cargarDatos])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -76,21 +81,28 @@ export default function Tablero() {
       .eq('id', id)
 
     if (error) {
-      alert('Error al eliminar: ' + error.message)
+      console.error('Tablero eliminar obs:', error)
+      toast.error('Error al eliminar: ' + error.message)
     } else {
       cargarDatos()
     }
   }
 
-  const areasUnicas = [...new Set(observaciones.map(o => o.area_responsable?.codigo).filter(Boolean))]
+  const areasUnicas = useMemo(
+    () => [...new Set(observaciones.map(o => o.area_responsable?.codigo).filter(Boolean))],
+    [observaciones],
+  )
 
-  const obsFiltradas = observaciones.filter(o => {
-    const textoOk = !filtroTexto ||
-      o.titulo?.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-      o.codigo?.toLowerCase().includes(filtroTexto.toLowerCase())
-    const areaOk = !filtroArea || o.area_responsable?.codigo === filtroArea
-    return textoOk && areaOk
-  })
+  const obsFiltradas = useMemo(() => {
+    const q = filtroTexto.toLowerCase()
+    return observaciones.filter(o => {
+      const textoOk = !q
+        || o.titulo?.toLowerCase().includes(q)
+        || o.codigo?.toLowerCase().includes(q)
+      const areaOk = !filtroArea || o.area_responsable?.codigo === filtroArea
+      return textoOk && areaOk
+    })
+  }, [observaciones, filtroTexto, filtroArea])
 
   const obsPorEstado = (estado: string) =>
     obsFiltradas.filter(o => o.estado === estado)
@@ -163,14 +175,19 @@ export default function Tablero() {
           {esCalidad && !IS_DEMO && (
             <button
               onClick={() => setMostrarModal(true)}
+              disabled={!auditoriaId}
+              title={!auditoriaId ? 'No hay una auditoría activa' : ''}
               style={{
-                background: '#c0392b', border: 'none',
+                background: auditoriaId ? '#c0392b' : '#666',
+                border: 'none',
                 color: 'white', borderRadius: '7px',
                 padding: '7px 14px', fontSize: '12px',
-                fontWeight: '700', cursor: 'pointer'
+                fontWeight: '700',
+                cursor: auditoriaId ? 'pointer' : 'not-allowed',
+                opacity: auditoriaId ? 1 : 0.6,
               }}
             >
-              + Nueva Observacion
+              + Nueva Observación
             </button>
           )}
           <button onClick={handleLogout} style={{
@@ -330,14 +347,14 @@ export default function Tablero() {
                       }}>
                         {obs.area_responsable?.nombre}
                       </div>
-			{obs.subarea && (
-				<div style={{
-					fontSize: '10px', color: '#7a8aaa',
-    					marginBottom: '5px', fontWeight: '500'
-  					}}>
-    					{obs.subarea.nombre}
-  					</div>
-					)}
+                      {obs.subarea && (
+                        <div style={{
+                          fontSize: '10px', color: '#7a8aaa',
+                          marginBottom: '5px', fontWeight: '500',
+                        }}>
+                          {obs.subarea.nombre}
+                        </div>
+                      )}
                       <p style={{ fontSize: '13px', fontWeight: '600', color: '#1a2234', lineHeight: '1.35', margin: 0 }}>
                         {obs.titulo}
                       </p>
@@ -356,7 +373,7 @@ export default function Tablero() {
                         <button
                           onClick={e => {
                             e.stopPropagation()
-                            if (window.confirm('Eliminar esta observacion?')) {
+                            if (window.confirm('¿Eliminar esta observación?')) {
                               eliminarObs(obs.id)
                             }
                           }}

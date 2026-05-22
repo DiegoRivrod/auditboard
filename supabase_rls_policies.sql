@@ -215,6 +215,40 @@ CREATE POLICY "actualizaciones_insert"
 -- No hay política UPDATE ni DELETE → nadie puede modificar el log
 
 -- ============================================================
+-- FUNCIÓN: generar_codigo_observacion()
+-- Devuelve el siguiente código atómico OBS-YYYY-NNN para el año actual.
+-- Usa una secuencia por año para evitar race conditions.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.generar_codigo_observacion()
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_year integer := EXTRACT(YEAR FROM NOW())::int;
+  v_max integer;
+  v_next integer;
+  v_prefix text;
+BEGIN
+  v_prefix := 'OBS-' || v_year::text || '-';
+
+  -- Advisory lock serializa generadores concurrentes (mismo año)
+  PERFORM pg_advisory_xact_lock(hashtext('obs_codigo_' || v_year::text));
+
+  SELECT COALESCE(MAX(NULLIF(regexp_replace(codigo, '^OBS-\d{4}-', ''), '')::int), 0)
+    INTO v_max
+    FROM public.observaciones
+   WHERE codigo LIKE v_prefix || '%';
+
+  v_next := v_max + 1;
+  RETURN v_prefix || LPAD(v_next::text, 3, '0');
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.generar_codigo_observacion() TO authenticated;
+
+-- ============================================================
 -- FUNCIÓN: actualizar_timestamp (trigger BEFORE UPDATE → updated_at)
 -- Fix: search_path fijo para evitar schema shadowing (SECURITY DEFINER)
 -- ============================================================

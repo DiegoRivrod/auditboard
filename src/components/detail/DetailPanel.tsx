@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'react-toastify'
 import { supabase } from '../../lib/supabase'
 import { COLORES_AREA, TIPOS, SEVERIDADES, inputStyle, labelStyle } from '../../constants'
-import type { Observacion } from '../../types'
+import type { Actualizacion, Area, Observacion, Subarea } from '../../types'
 
 interface Props {
   obs: Observacion
@@ -14,8 +15,8 @@ interface Props {
 const ESTADOS = [
   { id: 'sin_fecha', label: 'Sin Fecha', color: '#ef4444' },
   { id: 'fecha_comprometida', label: 'Fecha Comprometida', color: '#f59e0b' },
-  { id: 'en_ejecucion', label: 'En Ejecucion', color: '#3b82f6' },
-  { id: 'en_verificacion', label: 'En Verificacion', color: '#8b5cf6' },
+  { id: 'en_ejecucion', label: 'En Ejecución', color: '#3b82f6' },
+  { id: 'en_verificacion', label: 'En Verificación', color: '#8b5cf6' },
   { id: 'levantada', label: 'Levantada', color: '#22c55e' },
 ]
 
@@ -45,7 +46,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
   const [comentario, setComentario] = useState('')
   const [loading, setLoading] = useState(false)
   const [guardado, setGuardado] = useState(false)
-  const [historial, setHistorial] = useState<any[]>([])
+  const [historial, setHistorial] = useState<Actualizacion[]>([])
 
   // Campos editables solo para Calidad
   const [titulo, setTitulo] = useState(obs.titulo || '')
@@ -56,43 +57,48 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
   const [ubicacion, setUbicacion] = useState(obs.ubicacion || '')
   const [areaId, setAreaId] = useState(obs.area_responsable_id || '')
   const [subareaId, setSubareaId] = useState(obs.subarea_id || '')
-  const [areas, setAreas] = useState<any[]>([])
-  const [subareas, setSubareas] = useState<any[]>([])
+  const [areas, setAreas] = useState<Area[]>([])
+  const [subareas, setSubareas] = useState<Subarea[]>([])
 
-  useEffect(() => {
-    cargarHistorial()
-  }, [obs.id])
-
-  useEffect(() => {
-    if (esCalidad) cargarAreas()
-  }, [esCalidad])
-
-  useEffect(() => {
-    if (esCalidad && areaId) cargarSubareas(areaId)
-  }, [areaId, esCalidad])
-
-  async function cargarAreas() {
-    const { data } = await supabase.from('areas').select('*')
-    setAreas(data || [])
-  }
-
-  async function cargarSubareas(id: string) {
-    const { data } = await supabase.from('subareas').select('*').eq('area_id', id)
-    setSubareas(data || [])
-    // Si el area cambió y la subarea actual no pertenece a ella, resetear
-    if (id !== obs.area_responsable_id) {
-      setSubareaId(data && data.length > 0 ? data[0].id : '')
-    }
-  }
-
-  async function cargarHistorial() {
-    const { data } = await supabase
+  const cargarHistorial = useCallback(async () => {
+    const { data, error } = await supabase
       .from('actualizaciones')
       .select('*, usuario:perfiles(nombre_completo, area:areas(codigo))')
       .eq('observacion_id', obs.id)
       .order('created_at', { ascending: true })
+    if (error) console.error('DetailPanel cargarHistorial:', error)
     setHistorial(data || [])
-  }
+  }, [obs.id])
+
+  const cargarAreas = useCallback(async () => {
+    const { data, error } = await supabase.from('areas').select('*')
+    if (error) console.error('DetailPanel cargarAreas:', error)
+    setAreas(data || [])
+  }, [])
+
+  const cargarSubareas = useCallback(async (id: string) => {
+    const { data, error } = await supabase.from('subareas').select('*').eq('area_id', id)
+    if (error) console.error('DetailPanel cargarSubareas:', error)
+    setSubareas(data || [])
+    if (id !== obs.area_responsable_id) {
+      setSubareaId(data && data.length > 0 ? data[0].id : '')
+    }
+  }, [obs.area_responsable_id])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarHistorial()
+  }, [cargarHistorial])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (esCalidad) cargarAreas()
+  }, [esCalidad, cargarAreas])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (esCalidad && areaId) cargarSubareas(areaId)
+  }, [areaId, esCalidad, cargarSubareas])
 
   async function handleGuardar() {
     setLoading(true)
@@ -119,17 +125,28 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
       .eq('id', obs.id)
 
     if (error) {
-      alert('Error al guardar: ' + error.message)
+      toast.error('Error al guardar: ' + error.message)
       setLoading(false)
       return
     }
+
+    // Determinar el tipo de actualización según qué cambió
+    const cambioEstado = estado !== obs.estado
+    const cambioPct = porcentaje !== obs.porcentaje_avance
+    const cambioFechaInicio = (fechaInicio || '') !== (obs.fecha_inicio_comprometida || '')
+
+    let tipoActualizacion: 'comentario' | 'cambio_estado' | 'fecha_comprometida' | 'avance' | 'cierre' = 'comentario'
+    if (cambioEstado && estado === 'levantada') tipoActualizacion = 'cierre'
+    else if (cambioEstado) tipoActualizacion = 'cambio_estado'
+    else if (cambioFechaInicio) tipoActualizacion = 'fecha_comprometida'
+    else if (cambioPct) tipoActualizacion = 'avance'
 
     await supabase
       .from('actualizaciones')
       .insert({
         observacion_id: obs.id,
         usuario_id: usuarioId,
-        tipo: 'cambio_estado',
+        tipo: tipoActualizacion,
         contenido: comentario || null,
         estado_anterior: obs.estado,
         estado_nuevo: estado,
@@ -147,6 +164,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
   }
 
   const areaSeleccionada = esCalidad ? areas.find(a => a.id === areaId) : obs.area_responsable
+  const subareaSeleccionada = esCalidad ? subareas.find(s => s.id === subareaId) : obs.subarea
   const colorArea = COLORES_AREA[areaSeleccionada?.codigo || ''] || '#666'
 
   return (
@@ -178,7 +196,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
                 background: severidad === 'critica' ? '#fee2e2' : severidad === 'mayor' ? '#fef3c7' : '#dbeafe',
                 color: severidad === 'critica' ? '#c0392b' : severidad === 'mayor' ? '#b45309' : '#1a6fb5'
               }}>
-                {severidad === 'critica' ? 'No Conformidad' : severidad === 'mayor' ? 'Observacion' : 'Oportunidad de Mejora'}
+                {severidad === 'critica' ? 'No Conformidad' : severidad === 'mayor' ? 'Observación' : 'Oportunidad de Mejora'}
               </span>
             </div>
             <div style={{ fontSize: '15px', fontWeight: '700', color: '#1a2234', lineHeight: '1.3' }}>
@@ -207,14 +225,14 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
               {areaSeleccionada?.nombre || obs.area_responsable?.nombre}
             </span>
           </div>
-          {obs.subarea && (
+          {subareaSeleccionada && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
               padding: '4px 10px', borderRadius: '6px',
               border: '1px solid #e2e8f0', background: '#f7f9fc'
             }}>
               <span style={{ fontSize: '12px', fontWeight: '600', color: '#7a8aaa' }}>
-                📍 {obs.subarea.nombre}
+                📍 {subareaSeleccionada.nombre}
               </span>
             </div>
           )}
@@ -231,12 +249,12 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
               borderRadius: '8px', padding: '12px 14px', marginBottom: '16px'
             }}>
               <div style={{ fontSize: '11px', fontWeight: '700', color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
-                Edicion — Solo Calidad
+                Edición — Solo Calidad
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
                 <div>
-                  <label style={labelStyle}>Area Responsable</label>
+                  <label style={labelStyle}>Área Responsable</label>
                   <select value={areaId} onChange={e => setAreaId(e.target.value)} style={inputStyle}>
                     {areas.map(a => (
                       <option key={a.id} value={a.id}>{a.nombre}</option>
@@ -244,10 +262,10 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
                   </select>
                 </div>
                 <div>
-                  <label style={labelStyle}>Subarea</label>
+                  <label style={labelStyle}>Subárea</label>
                   <select value={subareaId} onChange={e => setSubareaId(e.target.value)} style={inputStyle} disabled={subareas.length === 0}>
                     {subareas.length === 0
-                      ? <option value="">Sin subareas</option>
+                      ? <option value="">Sin subáreas</option>
                       : subareas.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)
                     }
                   </select>
@@ -255,18 +273,18 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <label style={labelStyle}>Titulo</label>
+                <label style={labelStyle}>Título</label>
                 <input value={titulo} onChange={e => setTitulo(e.target.value)} style={inputStyle} />
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <label style={labelStyle}>Descripcion</label>
+                <label style={labelStyle}>Descripción</label>
                 <textarea value={descripcion} onChange={e => setDescripcion(e.target.value)}
                   style={{ ...inputStyle, minHeight: '70px', resize: 'vertical' as const }} />
               </div>
 
               <div style={{ marginBottom: '12px' }}>
-                <label style={labelStyle}>Accion Requerida</label>
+                <label style={labelStyle}>Acción Requerida</label>
                 <input value={accionRequerida} onChange={e => setAccionRequerida(e.target.value)} style={inputStyle} />
               </div>
 
@@ -290,7 +308,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
               </div>
 
               <div>
-                <label style={labelStyle}>Ubicacion / Zona</label>
+                <label style={labelStyle}>Ubicación / Zona</label>
                 <input value={ubicacion} onChange={e => setUbicacion(e.target.value)} style={inputStyle} placeholder="Ej: Línea 3, Almacén Norte..." />
               </div>
             </div>
@@ -299,7 +317,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
           <>
             {obs.descripcion && (
               <div style={{ marginBottom: '16px' }}>
-                <div style={labelStyle}>Descripcion</div>
+                <div style={labelStyle}>Descripción</div>
                 <p style={{ fontSize: '13px', color: '#4a5568', lineHeight: '1.5', margin: 0 }}>
                   {obs.descripcion}
                 </p>
@@ -307,7 +325,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
             )}
             {obs.accion_requerida && (
               <div style={{ marginBottom: '16px' }}>
-                <div style={labelStyle}>Accion Requerida</div>
+                <div style={labelStyle}>Acción Requerida</div>
                 <div style={{
                   background: '#fffbeb', border: '1px solid #fde68a',
                   borderRadius: '8px', padding: '10px 12px',
@@ -323,7 +341,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
         <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 16px' }} />
 
         <div style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', color: '#b0bdd4', marginBottom: '14px' }}>
-          Respuesta del Area
+          Respuesta del Área
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
@@ -392,7 +410,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
 
           {historial.length === 0 ? (
             <div style={{ color: '#c0cce0', fontSize: '12px', textAlign: 'center', padding: '20px 0' }}>
-              Sin actividad registrada aun
+              Sin actividad registrada aún
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -424,7 +442,7 @@ export default function DetailPanel({ obs, usuarioId, esCalidad, onClose, onActu
                             )}
                           </>
                         ) : (
-                          'Actualizacion registrada'
+                          'Actualización registrada'
                         )}
                       </div>
                       {item.contenido && (

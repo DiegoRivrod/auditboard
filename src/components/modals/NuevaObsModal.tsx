@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'react-toastify'
 import { supabase } from '../../lib/supabase'
 import { TIPOS, SEVERIDADES, inputStyle, labelStyle } from '../../constants'
+import type { Area, Subarea } from '../../types'
 
 interface Props {
   auditoriaId: string
@@ -10,8 +12,8 @@ interface Props {
 }
 
 export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCreada }: Props) {
-  const [areas, setAreas] = useState<any[]>([])
-  const [subareas, setSubareas] = useState<any[]>([])
+  const [areas, setAreas] = useState<Area[]>([])
+  const [subareas, setSubareas] = useState<Subarea[]>([])
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     tipo: 'maquinaria',
@@ -26,62 +28,60 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
     fecha_cierre: '',
   })
 
-  useEffect(() => {
-    cargarAreas()
-  }, [])
-
-  // Cuando cambia el área cargamos sus subáreas
-  useEffect(() => {
-    if (form.area_responsable_id) {
-      cargarSubareas(form.area_responsable_id)
-    }
-  }, [form.area_responsable_id])
-
-  async function cargarAreas() {
-    const { data } = await supabase
+  const cargarAreas = useCallback(async () => {
+    const { data, error } = await supabase
       .from('areas')
       .select('*')
+    if (error) console.error('NuevaObsModal cargarAreas:', error)
     setAreas(data || [])
     if (data && data.length > 0) {
       setForm(f => ({ ...f, area_responsable_id: data[0].id }))
     }
-  }
+  }, [])
 
-  async function cargarSubareas(areaId: string) {
-    const { data } = await supabase
+  const cargarSubareas = useCallback(async (areaId: string) => {
+    const { data, error } = await supabase
       .from('subareas')
       .select('*')
       .eq('area_id', areaId)
+    if (error) console.error('NuevaObsModal cargarSubareas:', error)
     setSubareas(data || [])
     if (data && data.length > 0) {
       setForm(f => ({ ...f, subarea_id: data[0].id }))
     } else {
       setForm(f => ({ ...f, subarea_id: '' }))
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarAreas()
+  }, [cargarAreas])
+
+  useEffect(() => {
+    if (form.area_responsable_id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      cargarSubareas(form.area_responsable_id)
+    }
+  }, [form.area_responsable_id, cargarSubareas])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!form.titulo || !form.area_responsable_id) return
+    if (!auditoriaId) {
+      toast.error('No hay una auditoría activa. Contacta al administrador.')
+      return
+    }
     setLoading(true)
 
-    const year = new Date().getFullYear()
-    const prefix = `OBS-${year}-`
-
-    const { data: ultimaObs } = await supabase
-      .from('observaciones')
-      .select('codigo')
-      .like('codigo', `${prefix}%`)
-      .order('codigo', { ascending: false })
-      .limit(1)
-
-    let nextNum = 1
-    if (ultimaObs && ultimaObs.length > 0) {
-      const lastNum = parseInt(ultimaObs[0].codigo.replace(prefix, ''), 10)
-      if (!isNaN(lastNum)) nextNum = lastNum + 1
+    // Generación atómica del código via RPC (evita race condition)
+    const { data: codigo, error: errCodigo } = await supabase.rpc('generar_codigo_observacion')
+    if (errCodigo || !codigo) {
+      toast.error('Error al generar el código de observación')
+      console.error('rpc generar_codigo_observacion:', errCodigo)
+      setLoading(false)
+      return
     }
-
-    const codigo = `${prefix}${String(nextNum).padStart(3, '0')}`
 
     const { error } = await supabase
       .from('observaciones')
@@ -99,34 +99,18 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
         creado_por: usuarioId,
         estado: 'sin_fecha',
         porcentaje_avance: 0,
-        fecha_inicio: form.fecha_inicio || null,
-        fecha_cierre: form.fecha_cierre || null,
+        fecha_inicio_comprometida: form.fecha_inicio || null,
+        fecha_cierre_estimada: form.fecha_cierre || null,
       })
 
     if (error) {
-      alert('Error al crear la observacion: ' + error.message)
+      toast.error('Error al crear la observación: ' + error.message)
       setLoading(false)
       return
     }
 
-    const { data: perfil } = await supabase
-      .from('perfiles')
-      .select('*, area:areas(*)')
-      .eq('area_id', form.area_responsable_id)
-      .eq('rol', 'jefe')
-      .single()
-
-    if (perfil) {
-      await supabase.functions.invoke('rapid-task', {
-        body: {
-          destinatario: 'diego.rivera.182@gmail.com',
-          nombreDestinatario: perfil.nombre_completo,
-          codigoObs: codigo,
-          tituloObs: form.titulo,
-          areaResponsable: perfil.area?.nombre,
-        }
-      })
-    }
+    // TODO: notificación al jefe de área pendiente de implementar.
+    // Requiere columna `email` en `perfiles` o lectura de auth.users via RPC.
 
     setLoading(false)
     onCreada()
@@ -154,10 +138,10 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
         }}>
           <div>
             <div style={{ fontSize: '20px', fontWeight: '800', color: '#1a2234' }}>
-              Nueva Observacion
+              Nueva Observación
             </div>
             <div style={{ fontSize: '12px', color: '#7a8aaa', marginTop: '2px' }}>
-              Auditoria General 2026
+              Auditoría General 2026
             </div>
           </div>
           <button onClick={onClose} style={{
@@ -173,7 +157,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
           {/* Area y Subarea */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
             <div>
-              <label style={labelStyle}>Area Responsable *</label>
+              <label style={labelStyle}>Área Responsable *</label>
               <select
                 value={form.area_responsable_id}
                 onChange={e => setForm(f => ({ ...f, area_responsable_id: e.target.value }))}
@@ -186,7 +170,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Subarea</label>
+              <label style={labelStyle}>Subárea</label>
               <select
                 value={form.subarea_id}
                 onChange={e => setForm(f => ({ ...f, subarea_id: e.target.value }))}
@@ -238,7 +222,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
 
           {/* Titulo */}
           <div style={{ marginBottom: '14px' }}>
-            <label style={labelStyle}>Titulo de la observacion *</label>
+            <label style={labelStyle}>Título de la observación *</label>
             <input
               type="text"
               value={form.titulo}
@@ -251,7 +235,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
 
           {/* Descripcion */}
           <div style={{ marginBottom: '14px' }}>
-            <label style={labelStyle}>Descripcion detallada</label>
+            <label style={labelStyle}>Descripción detallada</label>
             <textarea
               value={form.descripcion}
               onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
@@ -263,22 +247,22 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
           {/* Accion y Ubicacion */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
             <div>
-              <label style={labelStyle}>Accion requerida</label>
+              <label style={labelStyle}>Acción requerida</label>
               <input
                 type="text"
                 value={form.accion_requerida}
                 onChange={e => setForm(f => ({ ...f, accion_requerida: e.target.value }))}
-                placeholder="Que debe hacer el area..."
+                placeholder="Qué debe hacer el área..."
                 style={inputStyle}
               />
             </div>
             <div>
-              <label style={labelStyle}>Ubicacion / Zona</label>
+              <label style={labelStyle}>Ubicación / Zona</label>
               <input
                 type="text"
                 value={form.ubicacion}
                 onChange={e => setForm(f => ({ ...f, ubicacion: e.target.value }))}
-                placeholder="Ej: Linea 2, Zona B..."
+                placeholder="Ej: Línea 2, Zona B..."
                 style={inputStyle}
               />
             </div>
@@ -321,7 +305,7 @@ export default function NuevaObsModal({ auditoriaId, usuarioId, onClose, onCread
               border: 'none', color: 'white',
               fontSize: '13px', fontWeight: '700', cursor: loading ? 'not-allowed' : 'pointer'
             }}>
-              {loading ? 'Registrando...' : 'Registrar y Notificar al Area'}
+              {loading ? 'Registrando...' : 'Registrar y Notificar al Área'}
             </button>
           </div>
 
