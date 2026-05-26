@@ -43,6 +43,31 @@ type ObsDashboard = Pick<Observacion, 'severidad' | 'estado' | 'created_at' | 't
 }
 
 // Plugin: etiquetas encima de cada barra apilada (total de la pila + % del total general)
+function crearPluginEtiquetasSimples(color: string) {
+  return {
+    id: 'etiquetasSimples',
+    afterDraw(chart: any) {
+      const ctx = chart.ctx
+      const dataCount = chart.data.labels?.length || 0
+      for (let i = 0; i < dataCount; i++) {
+        const meta = chart.getDatasetMeta(0)
+        if (meta.hidden) continue
+        const barra = meta.data[i]
+        if (!barra) continue
+        const val = (chart.data.datasets[0].data[i] as number) || 0
+        if (val === 0) continue
+        ctx.save()
+        ctx.fillStyle = color
+        ctx.font = '500 11px "DM Mono", monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'bottom'
+        ctx.fillText(`${val}`, barra.x, barra.y - 3)
+        ctx.restore()
+      }
+    }
+  }
+}
+
 function crearPluginTotalesApilados(totalGeneral: number) {
   return {
     id: 'totalesApilados',
@@ -360,6 +385,7 @@ export default function Dashboard() {
   const pluginTotalesApilados = useMemo(() => crearPluginTotalesApilados(total), [total])
   const pluginTotalesHorizontal = useMemo(() => crearPluginTotalesHorizontal(total), [total])
   const pluginSegmentosLev = useMemo(() => crearPluginSegmentosConPorcentaje(totalesLevMes), [totalesLevMes])
+  const pluginEtiquetasLevantamiento = useMemo(() => crearPluginEtiquetasSimples('#22c55e'), [])
 
   // --- Opciones de gráficos ---
 
@@ -368,6 +394,7 @@ export default function Dashboard() {
   const opcionesBar = {
     responsive: true,
     maintainAspectRatio: false,
+    layout: { padding: { top: 24 } },
     plugins: {
       legend: { labels: { color: '#e2e2f0', font: monoFont } },
       tooltip: {
@@ -431,6 +458,7 @@ export default function Dashboard() {
   const opcionesLevantamiento = {
     responsive: true,
     maintainAspectRatio: false,
+    layout: { padding: { top: 24 } },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -654,7 +682,7 @@ export default function Dashboard() {
                 padding: '16px 20px', textAlign: 'center', minWidth: '100px', flex: 1
               }}>
                 <div style={{ fontSize: '28px', fontWeight: '500', color: '#e2e2f0', fontFamily: MONO }}>
-                  {cnt}
+                  {pct}%
                 </div>
                 <div style={{
                   fontSize: '9px', color: '#52526a', marginTop: '2px',
@@ -667,7 +695,7 @@ export default function Dashboard() {
                   fontSize: '11px', color: '#52526a', marginTop: '4px',
                   fontFamily: MONO
                 }}>
-                  {pct}%
+                  {cnt}
                 </div>
               </div>
             )
@@ -800,7 +828,7 @@ export default function Dashboard() {
               Avance de Levantamiento Mensual — {anio}
             </h2>
             <div style={{ height: '280px' }}>
-              <Bar data={barLevantamientoData} options={opcionesLevantamiento} />
+              <Bar data={barLevantamientoData} options={opcionesLevantamiento} plugins={[pluginEtiquetasLevantamiento]} />
             </div>
           </div>
         </div>
