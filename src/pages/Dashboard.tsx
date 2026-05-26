@@ -43,7 +43,7 @@ type ObsDashboard = Pick<Observacion, 'severidad' | 'estado' | 'created_at' | 't
 }
 
 // Plugin: etiquetas encima de cada barra apilada (total de la pila + % del total general)
-function crearPluginEtiquetasSimples(color: string) {
+function crearPluginEtiquetasSimples(color: string, totalParam = 0) {
   return {
     id: 'etiquetasSimples',
     afterDraw(chart: any) {
@@ -56,12 +56,13 @@ function crearPluginEtiquetasSimples(color: string) {
         if (!barra) continue
         const val = (chart.data.datasets[0].data[i] as number) || 0
         if (val === 0) continue
+        const pct = totalParam > 0 ? ` (${((val / totalParam) * 100).toFixed(1)}%)` : ''
         ctx.save()
         ctx.fillStyle = color
         ctx.font = '500 11px "DM Mono", monospace'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'bottom'
-        ctx.fillText(`${val}`, barra.x, barra.y - 3)
+        ctx.fillText(`${val}${pct}`, barra.x, barra.y - 3)
         ctx.restore()
       }
     }
@@ -385,7 +386,10 @@ export default function Dashboard() {
   const pluginTotalesApilados = useMemo(() => crearPluginTotalesApilados(total), [total])
   const pluginTotalesHorizontal = useMemo(() => crearPluginTotalesHorizontal(total), [total])
   const pluginSegmentosLev = useMemo(() => crearPluginSegmentosConPorcentaje(totalesLevMes), [totalesLevMes])
-  const pluginEtiquetasLevantamiento = useMemo(() => crearPluginEtiquetasSimples('#22c55e'), [])
+  const pluginEtiquetasLevantamiento = useMemo(
+    () => crearPluginEtiquetasSimples('#22c55e', levantadasConFecha.length),
+    [levantadasConFecha.length],
+  )
 
   // --- Opciones de gráficos ---
 
@@ -408,8 +412,8 @@ export default function Dashboard() {
       }
     },
     scales: {
-      x: { stacked: true, ticks: { color: '#52526a', font: monoFont }, grid: { color: '#1e1e2e' } },
-      y: { stacked: true, ticks: { color: '#52526a', font: monoFont }, grid: { color: '#1e1e2e' }, beginAtZero: true },
+      x: { stacked: true, ticks: { color: '#9090b0', font: monoFont }, grid: { color: '#1e1e2e' } },
+      y: { stacked: true, ticks: { color: '#9090b0', font: monoFont }, grid: { color: '#1e1e2e' }, beginAtZero: true },
     }
   }
 
@@ -430,8 +434,8 @@ export default function Dashboard() {
       }
     },
     scales: {
-      x: { stacked: true, ticks: { color: '#52526a', font: monoFont }, grid: { color: '#1e1e2e' }, beginAtZero: true },
-      y: { stacked: true, ticks: { color: '#52526a', font: { ...monoFont, size: 11 } }, grid: { color: '#1e1e2e' } },
+      x: { stacked: true, ticks: { color: '#9090b0', font: monoFont }, grid: { color: '#1e1e2e' }, beginAtZero: true },
+      y: { stacked: true, ticks: { color: '#9090b0', font: { ...monoFont, size: 11 } }, grid: { color: '#1e1e2e' } },
     }
   }
 
@@ -471,8 +475,8 @@ export default function Dashboard() {
       }
     },
     scales: {
-      x: { ticks: { color: '#52526a', font: monoFont }, grid: { color: '#1e1e2e' } },
-      y: { ticks: { color: '#52526a', font: monoFont }, grid: { color: '#1e1e2e' }, beginAtZero: true },
+      x: { ticks: { color: '#9090b0', font: monoFont }, grid: { color: '#1e1e2e' } },
+      y: { ticks: { color: '#9090b0', font: monoFont }, grid: { color: '#1e1e2e' }, beginAtZero: true },
     }
   }
 
@@ -692,7 +696,7 @@ export default function Dashboard() {
                   {ESTADO_LABEL[e]}
                 </div>
                 <div style={{
-                  fontSize: '11px', color: '#52526a', marginTop: '4px',
+                  fontSize: '11px', color: '#9090b0', marginTop: '4px',
                   fontFamily: MONO
                 }}>
                   {cnt}
