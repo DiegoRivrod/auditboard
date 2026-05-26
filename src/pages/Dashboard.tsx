@@ -967,7 +967,7 @@ export default function Dashboard() {
                         {area}
                       </div>
                       <div style={{
-                        fontSize: '10px', color: '#52526a', marginTop: '2px',
+                        fontSize: '11px', color: '#9090b0', marginTop: '2px',
                         fontFamily: MONO
                       }}>
                         {obsArea.length} obs ({obsGlobPct}% del total)
@@ -995,7 +995,7 @@ export default function Dashboard() {
                         {pctArea.toFixed(0)}%
                       </span>
                       <span style={{
-                        fontSize: '11px', color: '#52526a', marginLeft: '6px',
+                        fontSize: '11px', color: '#9090b0', marginLeft: '6px',
                         fontFamily: MONO
                       }}>
                         {levArea}/{obsArea.length}
@@ -1018,12 +1018,12 @@ export default function Dashboard() {
                           <div key={sub} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div style={{ minWidth: '140px' }}>
                               <div style={{
-                                fontSize: '11px', color: '#52526a', fontWeight: '500',
+                                fontSize: '11px', color: '#c0c0d8', fontWeight: '500',
                                 fontFamily: MONO
                               }}>
                                 ↳ {sub}
                               </div>
-                              <div style={{ fontSize: '10px', color: '#52526a', fontFamily: MONO }}>
+                              <div style={{ fontSize: '11px', color: '#9090b0', fontFamily: MONO }}>
                                 {obsSub.length} obs
                               </div>
                             </div>
@@ -1049,7 +1049,7 @@ export default function Dashboard() {
                                 {pctSub.toFixed(0)}%
                               </span>
                               <span style={{
-                                fontSize: '10px', color: '#52526a', marginLeft: '5px',
+                                fontSize: '11px', color: '#9090b0', marginLeft: '5px',
                                 fontFamily: MONO
                               }}>
                                 {levSub}/{obsSub.length}
@@ -1069,12 +1069,12 @@ export default function Dashboard() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div style={{ minWidth: '140px' }}>
                               <div style={{
-                                fontSize: '11px', color: '#52526a',
+                                fontSize: '11px', color: '#c0c0d8',
                                 fontStyle: 'italic', fontFamily: MONO
                               }}>
                                 ↳ Sin subárea
                               </div>
-                              <div style={{ fontSize: '10px', color: '#52526a', fontFamily: MONO }}>
+                              <div style={{ fontSize: '11px', color: '#9090b0', fontFamily: MONO }}>
                                 {obsSinSub.length} obs
                               </div>
                             </div>
@@ -1094,11 +1094,11 @@ export default function Dashboard() {
                             <div style={{ minWidth: '80px', textAlign: 'right' }}>
                               <span style={{
                                 fontSize: '14px', fontWeight: '500',
-                                color: '#52526a', fontFamily: MONO
+                                color: '#94a3b8', fontFamily: MONO
                               }}>
                                 {pctSinSub.toFixed(0)}%
                               </span>
-                              <span style={{ fontSize: '10px', color: '#52526a', marginLeft: '5px', fontFamily: MONO }}>
+                              <span style={{ fontSize: '11px', color: '#9090b0', marginLeft: '5px', fontFamily: MONO }}>
                                 {levSinSub}/{obsSinSub.length}
                               </span>
                             </div>
