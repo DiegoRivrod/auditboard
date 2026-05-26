@@ -667,7 +667,7 @@ export default function Dashboard() {
               {total}
             </div>
             <div style={{
-              fontSize: '9px', color: '#52526a', marginTop: '4px',
+              fontSize: '11px', color: '#9090b0', marginTop: '4px',
               letterSpacing: '1.8px', fontFamily: MONO
             }}>
               TOTAL
@@ -689,14 +689,14 @@ export default function Dashboard() {
                   {pct}%
                 </div>
                 <div style={{
-                  fontSize: '9px', color: '#52526a', marginTop: '2px',
+                  fontSize: '11px', color: '#9090b0', marginTop: '2px',
                   textTransform: 'uppercase', letterSpacing: '0.8px',
                   fontFamily: MONO
                 }}>
                   {ESTADO_LABEL[e]}
                 </div>
                 <div style={{
-                  fontSize: '11px', color: '#9090b0', marginTop: '4px',
+                  fontSize: '13px', color: '#b0b0cc', marginTop: '4px',
                   fontFamily: MONO
                 }}>
                   {cnt}
@@ -736,7 +736,7 @@ export default function Dashboard() {
                       {s.label}
                     </div>
                     <div style={{
-                      fontSize: '11px', color: '#52526a', marginTop: '2px',
+                      fontSize: '12px', color: '#9090b0', marginTop: '2px',
                       fontFamily: MONO
                     }}>
                       {pct}% del total
