@@ -11,7 +11,7 @@ import {
   ArcElement, Tooltip, Legend, Title
 } from 'chart.js'
 import { Bar, Pie } from 'react-chartjs-2'
-import { COLORES_AREA, SEVERIDADES } from '../constants'
+import { COLORES_AREA, META_LEVANTAMIENTO_PCT, SEVERIDADES } from '../constants'
 import type { Observacion } from '../types'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend, Title)
@@ -260,6 +260,10 @@ export default function Dashboard() {
   const anio = new Date().getFullYear()
   const total = obs.length
   const estados = Object.keys(ESTADO_LABEL)
+  const cntLevantada = obs.filter(o => o.estado === 'levantada').length
+  const pctLevantada = total > 0 ? (cntLevantada / total) * 100 : 0
+  const metaLevantamientoCumplida = pctLevantada >= META_LEVANTAMIENTO_PCT
+  const avanceHaciaMeta = Math.min((pctLevantada / META_LEVANTAMIENTO_PCT) * 100, 100)
 
   const areas = useMemo(
     () => [...new Set(obs.map(o => o.area_responsable?.nombre).filter(Boolean))] as string[],
@@ -561,6 +565,7 @@ export default function Dashboard() {
         .ab-kpi-3     { animation-delay: 240ms; }
         .ab-kpi-4     { animation-delay: 320ms; }
         .ab-kpi-5     { animation-delay: 400ms; }
+        .ab-kpi-6     { animation-delay: 480ms; }
 
         .ab-chart-panel { animation: fadeSlideUp 0.4s ease both; }
         .ab-chart-0     { animation-delay: 180ms; }
@@ -704,6 +709,80 @@ export default function Dashboard() {
               </div>
             )
           })}
+
+          <div className="ab-kpi-card ab-kpi-6" style={{
+            background: '#13131e',
+            border: `1px solid ${metaLevantamientoCumplida ? '#22c55e40' : '#ef444440'}`,
+            borderLeft: `3px solid ${metaLevantamientoCumplida ? '#22c55e' : '#ef4444'}`,
+            borderRadius: '4px',
+            padding: '16px 20px',
+            minWidth: '160px',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                fontSize: '13px',
+                fontWeight: '700',
+                letterSpacing: '1.2px',
+                color: metaLevantamientoCumplida ? '#22c55e' : '#ef4444',
+                fontFamily: DISPLAY,
+                textTransform: 'uppercase',
+              }}>
+                {metaLevantamientoCumplida ? 'Meta cumplida' : 'Meta no cumplida'}
+              </div>
+              <div style={{
+                fontSize: '11px',
+                color: '#9090b0',
+                marginTop: '4px',
+                letterSpacing: '0.8px',
+                fontFamily: MONO,
+                textTransform: 'uppercase',
+              }}>
+                Meta levantamiento {META_LEVANTAMIENTO_PCT}%
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '6px' }}>
+              <span style={{
+                fontSize: '28px',
+                fontWeight: '500',
+                color: metaLevantamientoCumplida ? '#22c55e' : '#e2e2f0',
+                fontFamily: MONO,
+              }}>
+                {pctLevantada.toFixed(0)}%
+              </span>
+              <span style={{ fontSize: '13px', color: '#52526a', fontFamily: MONO }}>
+                / {META_LEVANTAMIENTO_PCT}%
+              </span>
+            </div>
+            <div style={{
+              fontSize: '11px',
+              color: '#9090b0',
+              textAlign: 'center',
+              fontFamily: MONO,
+            }}>
+              {cntLevantada} de {total} levantadas
+              {!metaLevantamientoCumplida && total > 0 && (
+                <span style={{ display: 'block', marginTop: '2px', color: '#b0b0cc' }}>
+                  Faltan {(META_LEVANTAMIENTO_PCT - pctLevantada).toFixed(0)} pp
+                </span>
+              )}
+            </div>
+            <div style={{ height: '4px', background: '#1e1e2e', borderRadius: '2px', overflow: 'hidden', position: 'relative' }}>
+              <div
+                className="ab-progress-bar"
+                style={{
+                  height: '100%',
+                  borderRadius: '2px',
+                  background: metaLevantamientoCumplida ? '#22c55e' : '#e8a020',
+                  '--bar-width': `${avanceHaciaMeta}%`,
+                  width: `${avanceHaciaMeta}%`,
+                } as React.CSSProperties}
+              />
+            </div>
+          </div>
         </div>
 
         {/* TARJETAS SEVERIDAD */}

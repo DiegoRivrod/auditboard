@@ -1,3 +1,6 @@
+// Meta de levantamiento en Dashboard (% de observaciones en estado levantada)
+export const META_LEVANTAMIENTO_PCT = 50
+
 // Colores por área — usado en Tablero, Dashboard, DetailPanel
 export const COLORES_AREA: Record<string, string> = {
   CALIDAD: '#c0392b',
