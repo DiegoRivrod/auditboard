@@ -11,6 +11,8 @@ import {
   ArcElement, Tooltip, Legend, Title
 } from 'chart.js'
 import { Bar, Pie } from 'react-chartjs-2'
+import SelectorAuditoria from '../components/SelectorAuditoria'
+import { useAuditorias } from '../hooks/useAuditorias'
 import { COLORES_AREA, META_LEVANTAMIENTO_PCT, SEVERIDADES } from '../constants'
 import type { Observacion } from '../types'
 
@@ -220,6 +222,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [sinAuditoria, setSinAuditoria] = useState(false)
 
+  const { auditorias, auditoriaId, setAuditoria, loading: loadingAud } = useAuditorias()
+
   useEffect(() => {
     const fetchData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -228,22 +232,21 @@ export default function Dashboard() {
         return
       }
 
-      const { data: auditoria } = await supabase
-        .from('auditorias')
-        .select('id')
-        .eq('activa', true)
-        .single()
+      if (loadingAud) return
 
-      if (!auditoria) {
+      if (!auditoriaId) {
         setSinAuditoria(true)
         setLoading(false)
         return
       }
+      setSinAuditoria(false)
 
+      // Filtra por la auditoría seleccionada: cada dashboard refleja una sola
+      // auditoría, sin mezclar observaciones de distintos trimestres.
       const { data, error } = await supabase
         .from('observaciones')
         .select('severidad, estado, created_at, tipo, fecha_cierre_real, area_responsable:areas!area_responsable_id(nombre, codigo), subarea:subareas(nombre)')
-        .eq('auditoria_id', auditoria.id)
+        .eq('auditoria_id', auditoriaId)
 
       if (error) {
         console.error('Dashboard fetch observaciones:', error)
@@ -255,7 +258,7 @@ export default function Dashboard() {
       setLoading(false)
     }
     fetchData()
-  }, [navigate])
+  }, [navigate, auditoriaId, loadingAud])
 
   const anio = new Date().getFullYear()
   const total = obs.length
@@ -635,6 +638,14 @@ export default function Dashboard() {
             fontFamily: MONO
           }}>
             DASHBOARD {anio}
+          </span>
+          <span style={{ marginLeft: '6px' }}>
+            <SelectorAuditoria
+              auditorias={auditorias}
+              auditoriaId={auditoriaId}
+              onChange={setAuditoria}
+              tema="oscuro"
+            />
           </span>
         </div>
         <button

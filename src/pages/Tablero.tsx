@@ -5,6 +5,8 @@ import { supabase } from '../lib/supabase'
 import { IS_DEMO } from '../lib/env'
 import NuevaObsModal from '../components/modals/NuevaObsModal'
 import DetailPanel from '../components/detail/DetailPanel'
+import SelectorAuditoria from '../components/SelectorAuditoria'
+import { useAuditorias } from '../hooks/useAuditorias'
 import { COLORES_AREA, SEVERIDADES } from '../constants'
 import type { Observacion, Perfil } from '../types'
 
@@ -22,39 +24,48 @@ export default function Tablero() {
   const [loading, setLoading] = useState(true)
   const [usuario, setUsuario] = useState<Perfil | null>(null)
   const [mostrarModal, setMostrarModal] = useState(false)
-  const [auditoriaId, setAuditoriaId] = useState('')
   const [obsSeleccionada, setObsSeleccionada] = useState<Observacion | null>(null)
   const [filtroTexto, setFiltroTexto] = useState('')
   const [filtroArea, setFiltroArea] = useState('')
 
+  const { auditorias, auditoriaId, setAuditoria, loading: loadingAud } = useAuditorias()
+
   const esCalidad = usuario?.area?.codigo === 'CALIDAD'
 
+  // El perfil del usuario se carga una sola vez (no depende de la auditoría).
+  useEffect(() => {
+    let cancelado = false
+    async function cargarPerfil() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        navigate('/login')
+        return
+      }
+      const { data: perfil, error: errPerfil } = await supabase
+        .from('perfiles')
+        .select('*, area:areas(*)')
+        .eq('id', user.id)
+        .single()
+      if (errPerfil) console.error('Tablero fetch perfil:', errPerfil)
+      if (!cancelado) setUsuario(perfil)
+    }
+    cargarPerfil()
+    return () => { cancelado = true }
+  }, [navigate])
+
+  // Las observaciones se cargan filtradas por la auditoría seleccionada,
+  // de modo que el tablero nunca mezcla observaciones de distintas auditorías.
   const cargarDatos = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      navigate('/login')
+    if (!auditoriaId) {
+      // No hay ninguna auditoría disponible: tablero vacío, sin spinner infinito.
+      setObservaciones([])
+      setLoading(false)
       return
     }
-
-    const { data: perfil, error: errPerfil } = await supabase
-      .from('perfiles')
-      .select('*, area:areas(*)')
-      .eq('id', user.id)
-      .single()
-    if (errPerfil) console.error('Tablero fetch perfil:', errPerfil)
-    setUsuario(perfil)
-
-    const { data: auditoria, error: errAudit } = await supabase
-      .from('auditorias')
-      .select('id')
-      .eq('activa', true)
-      .single()
-    if (errAudit) console.error('Tablero fetch auditoría:', errAudit)
-    if (auditoria) setAuditoriaId(auditoria.id)
-
     const { data: obs, error: errObs } = await supabase
       .from('observaciones')
       .select('*, area_responsable:areas(*), subarea:subareas(*)')
+      .eq('auditoria_id', auditoriaId)
       .order('created_at', { ascending: false })
     if (errObs) {
       console.error('Tablero fetch observaciones:', errObs)
@@ -62,12 +73,13 @@ export default function Tablero() {
     }
     setObservaciones(obs || [])
     setLoading(false)
-  }, [navigate])
+  }, [auditoriaId])
 
   useEffect(() => {
+    if (loadingAud) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     cargarDatos()
-  }, [cargarDatos])
+  }, [loadingAud, cargarDatos])
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -133,11 +145,14 @@ export default function Tablero() {
             justifyContent: 'center', fontSize: '16px'
           }}>🔍</div>
           <span style={{ color: 'white', fontWeight: '800', fontSize: '18px' }}>AuditBoard</span>
-          <span style={{
-            marginLeft: '8px', background: '#c0392b', color: 'white',
-            fontSize: '10px', fontWeight: '700', padding: '2px 8px',
-            borderRadius: '20px', letterSpacing: '0.5px'
-          }}>AUDITORIA ACTIVA</span>
+          <span style={{ marginLeft: '8px' }}>
+            <SelectorAuditoria
+              auditorias={auditorias}
+              auditoriaId={auditoriaId}
+              onChange={setAuditoria}
+              tema="oscuro"
+            />
+          </span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

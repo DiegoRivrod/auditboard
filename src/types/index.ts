@@ -15,6 +15,13 @@ export type TipoObservacion =
   | 'seguridad'
   | 'limpieza'
 
+export interface Auditoria {
+  id: string
+  nombre?: string        // etiqueta para el selector (fallback: fecha o id)
+  activa: boolean
+  created_at?: string
+}
+
 export interface Area {
   id: string
   nombre: string
