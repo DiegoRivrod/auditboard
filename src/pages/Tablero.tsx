@@ -288,9 +288,9 @@ export default function Tablero() {
 
       {/* TABLERO */}
       <div style={{ flex: 1, padding: '20px 24px', overflowX: 'auto', minHeight: 0 }}>
-        <div style={{ display: 'flex', gap: '14px', height: '100%', margin: '0 auto', width: 'fit-content' }}>
+        <div style={{ display: 'flex', gap: '14px', height: '100%', width: '100%' }}>
           {COLUMNAS.map(col => (
-            <div key={col.id} style={{ width: '280px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div key={col.id} style={{ flex: 1, minWidth: '200px', display: 'flex', flexDirection: 'column', height: '100%' }}>
               <div style={{
                 background: col.bg, border: `1px solid ${col.border}`,
                 borderBottom: 'none', borderRadius: '10px 10px 0 0',
