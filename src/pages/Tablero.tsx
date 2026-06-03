@@ -142,8 +142,8 @@ export default function Tablero() {
           <div style={{
             width: '32px', height: '32px', background: '#c0392b',
             borderRadius: '7px', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '16px'
-          }}>🔍</div>
+            justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: 'white', letterSpacing: '-0.5px'
+          }}>AB</div>
           <span style={{ color: 'white', fontWeight: '800', fontSize: '18px' }}>AuditBoard</span>
           <span style={{ marginLeft: '8px' }}>
             <SelectorAuditoria
@@ -185,7 +185,7 @@ export default function Tablero() {
               fontWeight: '700', cursor: 'pointer'
             }}
           >
-            📊 Dashboard
+            Dashboard
           </button>
           {esCalidad && !IS_DEMO && (
             <button
@@ -288,7 +288,7 @@ export default function Tablero() {
 
       {/* TABLERO */}
       <div style={{ flex: 1, padding: '20px 24px', overflowX: 'auto', minHeight: 0 }}>
-        <div style={{ display: 'flex', gap: '14px', minWidth: 'max-content', height: '100%' }}>
+        <div style={{ display: 'flex', gap: '14px', height: '100%', margin: '0 auto', width: 'fit-content' }}>
           {COLUMNAS.map(col => (
             <div key={col.id} style={{ width: '280px', display: 'flex', flexDirection: 'column', height: '100%' }}>
               <div style={{
@@ -405,7 +405,7 @@ export default function Tablero() {
                             cursor: 'pointer',
                           }}
                         >
-                          🗑️ Eliminar
+                          Eliminar
                         </button>
                       )}
                     </div>
