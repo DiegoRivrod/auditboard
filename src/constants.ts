@@ -8,6 +8,8 @@ export const COLORES_AREA: Record<string, string> = {
   'LOGISTICA Y ALMACEN': '#d97706',
   MANTENIMIENTO: '#16a34a',
   'ANALISIS DE MEJORA': '#7c3aed',
+  'MEDICION DE MEJORA': '#0891b2',
+  'OPORTUNIDAD DE MEJORA': '#db2777',
 }
 
 // Tipos de observacion — usado en DetailPanel y NuevaObsModal
