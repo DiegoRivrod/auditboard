@@ -19,6 +19,7 @@ import type { Observacion } from '../types'
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend, Title)
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+const TIPO_ABREV: Record<string, string> = { critica: 'NC', mayor: 'Obs', menor: 'OM' }
 
 const TIPOS_CONFIG = [
   { id: 'estructura',    label: 'Estructura',    color: '#6366f1' },
@@ -1062,6 +1063,22 @@ export default function Dashboard() {
                       }}>
                         {obsArea.length} obs ({obsGlobPct}% del total)
                       </div>
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px', flexWrap: 'wrap' }}>
+                        {SEVERIDADES.map(s => {
+                          const count = obsArea.filter(o => o.severidad === s.id).length
+                          if (count === 0) return null
+                          return (
+                            <span key={s.id} style={{
+                              fontSize: '10px', fontFamily: MONO, fontWeight: '600',
+                              padding: '1px 5px', borderRadius: '3px',
+                              background: s.bg + '22', color: s.color,
+                              border: `1px solid ${s.color}44`
+                            }}>
+                              {TIPO_ABREV[s.id]} {count}
+                            </span>
+                          )
+                        })}
+                      </div>
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ height: '8px', background: '#1e1e2e', borderRadius: '2px', overflow: 'hidden' }}>
@@ -1115,6 +1132,22 @@ export default function Dashboard() {
                               </div>
                               <div style={{ fontSize: '11px', color: '#9090b0', fontFamily: MONO }}>
                                 {obsSub.length} obs
+                              </div>
+                              <div style={{ display: 'flex', gap: '4px', marginTop: '3px', flexWrap: 'wrap' }}>
+                                {SEVERIDADES.map(s => {
+                                  const count = obsSub.filter(o => o.severidad === s.id).length
+                                  if (count === 0) return null
+                                  return (
+                                    <span key={s.id} style={{
+                                      fontSize: '9px', fontFamily: MONO, fontWeight: '600',
+                                      padding: '1px 4px', borderRadius: '3px',
+                                      background: s.bg + '22', color: s.color,
+                                      border: `1px solid ${s.color}44`
+                                    }}>
+                                      {TIPO_ABREV[s.id]} {count}
+                                    </span>
+                                  )
+                                })}
                               </div>
                             </div>
                             <div style={{ flex: 1 }}>
